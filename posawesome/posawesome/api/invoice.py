@@ -7,6 +7,7 @@ from frappe import _
 from frappe.model.mapper import get_mapped_doc
 from frappe.utils import add_days, flt
 
+from posawesome.posawesome.api.modifiers import validate_invoice_doc_modifiers
 from posawesome.posawesome.api.utilities import get_company_domain  # Updated import
 from posawesome.posawesome.api.payments import get_posawesome_credit_redeem_remark
 from posawesome.posawesome.doctype.delivery_charges.delivery_charges import (
@@ -21,6 +22,7 @@ def validate(doc, method):
     auto_set_delivery_charges(doc)
     calc_delivery_charges(doc)
     apply_tax_inclusive(doc)
+    validate_invoice_doc_modifiers(doc)
 
 
 def before_submit(doc, method):

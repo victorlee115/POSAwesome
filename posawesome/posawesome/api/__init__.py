@@ -57,11 +57,6 @@ from .purchase_orders import (
     create_supplier,
     search_suppliers,
 )
-from .shifts import (
-    check_opening_shift,
-    create_opening_voucher,
-    get_opening_dialog_data,
-)
 from .utilities import (
     get_app_branch,
     get_app_info,
@@ -72,3 +67,21 @@ from .utilities import (
     get_version,
 )
 from .utils import get_active_pos_profile, get_default_warehouse
+
+
+def get_opening_dialog_data(*args, **kwargs):
+    from .shifts import get_opening_dialog_data as _fn
+
+    return _fn(*args, **kwargs)
+
+
+def create_opening_voucher(*args, **kwargs):
+    from .shifts import create_opening_voucher as _fn
+
+    return _fn(*args, **kwargs)
+
+
+def check_opening_shift(*args, **kwargs):
+    from .shifts import check_opening_shift as _fn
+
+    return _fn(*args, **kwargs)

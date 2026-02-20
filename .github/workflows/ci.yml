@@ -9,6 +9,10 @@ on:
 jobs:
   build:
     runs-on: ubuntu-22.04
+    strategy:
+      fail-fast: false
+      matrix:
+        frappe_branch: [version-15, version-16]
 
     services:
       mariadb:
@@ -64,9 +68,9 @@ jobs:
           pip3 install frappe-bench
           echo "$HOME/.local/bin" >> $GITHUB_PATH
 
-      - name: Initialize Frappe Bench (v15)
+      - name: Initialize Frappe Bench (${{ matrix.frappe_branch }})
         run: |
-          bench init --frappe-branch version-15 --python python3 frappe-bench
+          bench init --frappe-branch "${{ matrix.frappe_branch }}" --python python3 frappe-bench
 
       - name: Setup Site and Install App (Dynamic)
         run: |
@@ -93,7 +97,7 @@ jobs:
             --no-mariadb-socket
 
           # Install ERPNext
-          bench get-app --branch version-15 https://github.com/frappe/erpnext
+          bench get-app --branch "${{ matrix.frappe_branch }}" https://github.com/frappe/erpnext
           bench --site example.com install-app erpnext
 
           # Install local app using current branch

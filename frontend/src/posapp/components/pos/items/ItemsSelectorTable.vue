@@ -16,6 +16,27 @@
 			:row-props="rowProps"
 			@scroll.passive="handleListScroll"
 		>
+			<template v-slot:item.item_name="{ item }">
+				<div class="item-name-cell">
+					<div class="d-flex align-center ga-2">
+						<span>{{ item.item_name }}</span>
+						<v-chip
+							v-if="item.posa_unavailable"
+							size="x-small"
+							color="error"
+							variant="tonal"
+						>
+							{{ __("Unavailable") }}
+						</v-chip>
+					</div>
+					<div
+						v-if="item.posa_unavailable && item.posa_unavailable_reason"
+						class="text-caption text-error text-wrap"
+					>
+						{{ item.posa_unavailable_reason }}
+					</div>
+				</div>
+			</template>
 			<template v-slot:item.rate="{ item }">
 				<div v-if="context !== 'purchase'">
 					<div class="text-primary">
@@ -96,6 +117,7 @@
 
 <script setup>
 import { ref } from "vue";
+const __ = window.__ || ((text) => text);
 
 const props = defineProps({
 	displayedItems: { type: Array, default: () => [] },
@@ -177,6 +199,14 @@ defineExpose({ scrollToIndex, getTableElement, tableRef });
 	font-weight: 600;
 	color: rgb(var(--v-theme-primary));
 	background-color: rgba(var(--v-theme-primary), 0.32);
+}
+
+:deep(.item-row-unavailable td) {
+	opacity: 0.65;
+}
+
+.item-name-cell {
+	min-width: 180px;
 }
 
 .last-rate-inline {

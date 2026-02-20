@@ -1,14 +1,16 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const getCachedItemDetails = vi.fn();
-const saveItemDetailsCache = vi.fn();
-const updateLocalStockCache = vi.fn();
+const offlineMocks = vi.hoisted(() => ({
+	getCachedItemDetails: vi.fn(),
+	saveItemDetailsCache: vi.fn(),
+	updateLocalStockCache: vi.fn(),
+}));
 
 vi.mock("../src/offline/index", () => ({
-	getCachedItemDetails,
-	saveItemDetailsCache,
+	getCachedItemDetails: offlineMocks.getCachedItemDetails,
+	saveItemDetailsCache: offlineMocks.saveItemDetailsCache,
 	saveItemsBulk: vi.fn(async () => {}),
-	updateLocalStockCache,
+	updateLocalStockCache: offlineMocks.updateLocalStockCache,
 	saveItemUOMs: vi.fn(),
 	getItemUOMs: vi.fn(() => []),
 	getLocalStock: vi.fn(() => null),
@@ -27,7 +29,7 @@ import { useItemDetailFetcher } from "../src/posapp/composables/pos/items/useIte
 describe("useItemDetailFetcher", () => {
 	beforeEach(() => {
 		vi.clearAllMocks();
-		getCachedItemDetails.mockResolvedValue({
+		offlineMocks.getCachedItemDetails.mockResolvedValue({
 			cached: [],
 			missing: ["ITEM-1"],
 		});
@@ -73,8 +75,7 @@ describe("useItemDetailFetcher", () => {
 		expect(item.batch_no_data).toEqual([]);
 		expect(item.serial_no_data).toEqual([]);
 		expect(item.actual_qty).toBe(0);
-		expect(updateLocalStockCache).toHaveBeenCalledTimes(1);
-		expect(saveItemDetailsCache).toHaveBeenCalledTimes(1);
+		expect(offlineMocks.updateLocalStockCache).toHaveBeenCalledTimes(1);
+		expect(offlineMocks.saveItemDetailsCache).toHaveBeenCalledTimes(1);
 	});
 });
-

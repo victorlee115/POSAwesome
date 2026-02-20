@@ -57,6 +57,7 @@
 					@update-rate="handleRateUpdate"
 					@update-discount-percent="handleDiscountPercentUpdate"
 					@update-discount-amount="handleDiscountAmountUpdate"
+					@update-prep-status="handlePrepStatusUpdate"
 					@open-name-dialog="openNameDialog"
 					@reset-item-name="resetItemName"
 					@toggle-offer="toggleOffer"
@@ -310,6 +311,10 @@ const handleDiscountAmountUpdate = (item: any, newDiscount: any) => {
 		target: { value: newDiscount },
 	});
 	props.calcPrices(item, newDiscount, { target: { id: "discount_amount" } });
+};
+
+const handlePrepStatusUpdate = (item: any, status: string) => {
+	item.posa_prep_status = status || "Paid";
 };
 
 const handleRowClick = (event: any, item: any, toggleExpand: any, internalItem: any) => {

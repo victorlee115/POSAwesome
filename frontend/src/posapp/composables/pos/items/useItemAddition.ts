@@ -170,6 +170,81 @@ export function useItemAddition() {
 		callSetSerialNo(context, item);
 	};
 
+	const getModifierMergeKey = (entry: any) => {
+		const explicit = String(entry?.posa_modifier_signature || "").trim();
+		if (explicit) {
+			return explicit;
+		}
+		const raw = entry?.posa_modifiers_json;
+		if (!raw) {
+			return "";
+		}
+		if (typeof raw === "string") {
+			const trimmed = raw.trim();
+			if (!trimmed) {
+				return "";
+			}
+			try {
+				const parsed = JSON.parse(trimmed);
+				const source =
+					parsed && typeof parsed === "object" && parsed.selections && typeof parsed.selections === "object"
+						? parsed.selections
+						: parsed;
+				if (!source || typeof source !== "object") {
+					return "";
+				}
+				const normalized = Object.entries(source as Record<string, any>)
+					.map(([group, values]) => {
+						const list = Array.isArray(values) ? values : values != null ? [values] : [];
+						const cleaned = list
+							.map((value: any) => {
+								if (value && typeof value === "object") {
+									return String(value.value || value.option_value || value.label || "").trim();
+								}
+								return String(value || "").trim();
+							})
+							.filter(Boolean)
+							.sort();
+						return [group, cleaned] as [string, string[]];
+					})
+					.filter(([, values]) => values.length > 0)
+					.sort(([a], [b]) => a.localeCompare(b));
+				return JSON.stringify(normalized);
+			} catch (_error) {
+				return trimmed;
+			}
+		}
+		try {
+			return JSON.stringify(raw);
+		} catch (_error) {
+			return "";
+		}
+	};
+
+	const sameMergeIdentity = (
+		left: any,
+		right: any,
+		options: { includeRate?: boolean } = {},
+	) => {
+		if (!left || !right) {
+			return false;
+		}
+		if (left.item_code !== right.item_code || left.uom !== right.uom) {
+			return false;
+		}
+		const requireBatch = Boolean(left?.has_batch_no || right?.has_batch_no);
+		if (requireBatch && (left?.batch_no || "") !== (right?.batch_no || "")) {
+			return false;
+		}
+		if (
+			options.includeRate &&
+			Number(left?.rate || 0) !== Number(right?.rate || 0)
+		) {
+			return false;
+		}
+		return getModifierMergeKey(left) === getModifierMergeKey(right);
+	};
+
 	// Remove item from invoice
 	const removeItem = (item, context) => {
 		if (context.invoiceStore) {
@@ -384,11 +459,7 @@ export function useItemAddition() {
 			) {
 				const existingItem =
 					findMergeTarget(context, item, false)?.item ||
-					context.items.find(
-						(i) =>
-							i.item_code === item.item_code &&
-							i.uom === item.uom,
-					);
+					context.items.find((i) => sameMergeIdentity(i, item));
 				const currentQty = existingItem ? existingItem.qty : 0;
 				const requestedQty = item.qty || 1;
 				const maxQty =
@@ -599,11 +670,9 @@ export function useItemAddition() {
 							toQueue.forEach((line, lineIndex) => {
 								const pendingIndex = pendingItems.findIndex(
 									(pendingItem) =>
-										pendingItem.item_code === line.item_code &&
-										pendingItem.uom === line.uom &&
-										pendingItem.rate === line.rate &&
-										(pendingItem.batch_no || "") ===
-											(line.batch_no || ""),
+										sameMergeIdentity(pendingItem, line, {
+											includeRate: true,
+										}),
 								);
 
 								if (pendingIndex !== -1 && !context.new_line) {
@@ -728,11 +797,9 @@ export function useItemAddition() {
 								extra_items.forEach((splitLine) => {
 									const pendingIndex = pendingItems.findIndex(
 										(pendingItem) =>
-											pendingItem.item_code === splitLine.item_code &&
-											pendingItem.uom === splitLine.uom &&
-											pendingItem.rate === splitLine.rate &&
-											(pendingItem.batch_no || "") ===
-												(splitLine.batch_no || ""),
+											sameMergeIdentity(pendingItem, splitLine, {
+												includeRate: true,
+											}),
 									);
 									if (pendingIndex !== -1 && !context.new_line) {
 										const pendingItem = pendingItems[pendingIndex];

@@ -203,6 +203,10 @@ def get_item_variants(pos_profile, parent_item_code, price_list=None, customer=N
         "brand",
         "allow_negative_stock",
     ]
+    if frappe.db.has_column("Item", "posa_modifier_profile"):
+        fields.append("posa_modifier_profile")
+    if frappe.db.has_column("Item", "posa_popular_rank"):
+        fields.append("posa_popular_rank")
 
     items_data = frappe.get_all(
         "Item",

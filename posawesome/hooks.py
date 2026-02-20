@@ -41,6 +41,8 @@ doctype_js = {
     "POS Profile": "posawesome/api/pos_profile.js",
     "Sales Invoice": "posawesome/api/invoice.js",
     "Company": "posawesome/api/company.js",
+    "POSA Modifier Profile": "posawesome/doctype/posa_modifier_profile/posa_modifier_profile.js",
+    "POSA Ingredient Rule": "posawesome/doctype/posa_ingredient_rule/posa_ingredient_rule.js",
 }
 # doctype_list_js = {"doctype" : "public/js/doctype_list.js"}
 # doctype_tree_js = {"doctype" : "public/js/doctype_tree.js"}

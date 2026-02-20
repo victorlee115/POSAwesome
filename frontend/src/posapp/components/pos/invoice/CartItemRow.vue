@@ -68,6 +68,39 @@
 					<v-icon size="small">mdi-undo</v-icon>
 				</v-btn>
 			</div>
+			<div
+				v-if="showLineMeta"
+				class="posa-line-meta mt-1 d-flex align-center ga-1 flex-wrap"
+			>
+				<v-chip
+					v-if="item.posa_modifier_summary"
+					size="x-small"
+					color="secondary"
+					variant="tonal"
+					class="meta-chip"
+				>
+					{{ item.posa_modifier_summary }}
+				</v-chip>
+				<v-chip
+					v-if="item.posa_drink_code"
+					size="x-small"
+					color="primary"
+					variant="outlined"
+					class="meta-chip"
+				>
+					{{ item.posa_drink_code }}
+				</v-chip>
+				<v-chip
+					v-if="prepStatus"
+					size="x-small"
+					:color="prepStatusColor"
+					variant="tonal"
+					class="meta-chip prep-chip"
+					@click.stop="cyclePrepStatus"
+				>
+					{{ __("Prep") }}: {{ prepStatus }}
+				</v-chip>
+			</div>
 		</td>
 
 		<!-- Quantity Column -->
@@ -390,6 +423,7 @@ const emit = defineEmits([
 	"update-rate",
 	"update-discount-percent",
 	"update-discount-amount",
+	"update-prep-status",
 ]);
 
 const __ = window.__ || ((text) => text);
@@ -409,6 +443,7 @@ const rateInput = ref(null);
 const discountPercentInput = ref(null);
 const discountAmountInput = ref(null);
 const uomSelect = ref(null);
+const prepStatuses = ["Paid", "In Prep", "Ready", "Collected"];
 
 const memoDeps = computed(() => {
 	const deps = [
@@ -427,6 +462,9 @@ const memoDeps = computed(() => {
 		props.item.posa_offer_applied,
 		props.item.is_free_item,
 		props.item.price_list_rate,
+		props.item.posa_modifier_summary,
+		props.item.posa_drink_code,
+		props.item.posa_prep_status,
 		// Include edit states to ensure UI updates when switching modes
 		isEditingQty.value,
 		isEditingRate.value,
@@ -441,6 +479,30 @@ const memoDeps = computed(() => {
 		qty: props.item.qty,
 	});
 	return deps;
+});
+
+const showLineMeta = computed(() => {
+	return Boolean(
+		props.item?.posa_modifiers_json ||
+			props.item?.posa_modifier_summary ||
+			props.item?.posa_drink_code ||
+			props.item?.posa_prep_status,
+	);
+});
+
+const prepStatus = computed(() => {
+	if (!showLineMeta.value) {
+		return "";
+	}
+	const value = String(props.item?.posa_prep_status || "").trim();
+	return value || "Paid";
+});
+
+const prepStatusColor = computed(() => {
+	if (prepStatus.value === "Ready") return "success";
+	if (prepStatus.value === "In Prep") return "warning";
+	if (prepStatus.value === "Collected") return "info";
+	return "primary";
 });
 
 const qtyLength = computed(() => String(Math.abs(props.item.qty || 0)).replace(".", "").length);
@@ -621,6 +683,16 @@ function closeDiscountAmountEdit() {
 		editingDiscountAmountValue.value = "";
 	}
 }
+
+function cyclePrepStatus() {
+	if (props.item?.posa_is_replace) {
+		return;
+	}
+	const current = prepStatus.value;
+	const currentIndex = prepStatuses.indexOf(current);
+	const next = prepStatuses[(currentIndex + 1) % prepStatuses.length];
+	emit("update-prep-status", props.item, next);
+}
 </script>
 
 <style scoped>
@@ -675,6 +747,24 @@ td {
 	text-align: center;
 	color: var(--pos-text-primary);
 	position: relative;
+}
+
+.posa-line-meta {
+	row-gap: 4px;
+}
+
+.meta-chip {
+	max-width: 100%;
+}
+
+.meta-chip :deep(.v-chip__content) {
+	white-space: normal;
+	word-break: break-word;
+	line-height: 1.2;
+}
+
+.prep-chip {
+	cursor: pointer;
 }
 
 /* Keyboard focus styles */

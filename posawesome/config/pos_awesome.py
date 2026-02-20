@@ -33,6 +33,16 @@ def get_data():
                     "description": "POS Offers",
                     "name": "POS Offer",
                 },
+                {
+                    "type": "doctype",
+                    "description": "Modifier Profiles",
+                    "name": "POSA Modifier Profile",
+                },
+                {
+                    "type": "doctype",
+                    "description": "Ingredient 86 Rules",
+                    "name": "POSA Ingredient Rule",
+                },
             ],
         }
     ]

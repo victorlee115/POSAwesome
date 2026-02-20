@@ -4,6 +4,7 @@ import frappe
 def after_uninstall():
     clear_custom_fields_and_properties()
     remove_delivery_charges_field()
+    remove_matcha_takeaway_fields()
 
 
 def clear_custom_fields_and_properties():
@@ -54,3 +55,26 @@ def remove_delivery_charges_field():
     frappe.db.delete("Custom Field", "Sales Invoice-posa_delivery_charges_rate")
     frappe.db.commit()
     print("Removed delivery charges fields from Sales Invoice")
+
+
+def remove_matcha_takeaway_fields():
+    field_names = [
+        "Item-posa_modifier_profile",
+        "Item-posa_popular_rank",
+        "POS Profile-posa_section_matcha_takeaway",
+        "POS Profile-posa_popular_items_json",
+        "POS Profile-posa_enable_prep_queue",
+        "Sales Invoice Item-posa_modifiers_json",
+        "Sales Invoice Item-posa_modifier_summary",
+        "Sales Invoice Item-posa_modifiers_delta",
+        "Sales Invoice Item-posa_prep_status",
+        "Sales Invoice Item-posa_drink_code",
+        "POS Invoice Item-posa_modifiers_json",
+        "POS Invoice Item-posa_modifier_summary",
+        "POS Invoice Item-posa_modifiers_delta",
+        "POS Invoice Item-posa_prep_status",
+        "POS Invoice Item-posa_drink_code",
+    ]
+    for name in field_names:
+        frappe.db.delete("Custom Field", {"name": name})
+    frappe.db.commit()

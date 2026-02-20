@@ -1,10 +1,14 @@
 <template>
 	<div
-		:class="['card-item-card', { 'item-highlighted': isItemHighlighted }]"
+		:class="[
+			'card-item-card',
+			{ 'item-highlighted': isItemHighlighted, 'item-unavailable': isUnavailable },
+		]"
 		@click="onClick"
-		:draggable="true"
+		:draggable="!isUnavailable"
 		@dragstart="onDragStart"
 		@dragend="onDragEnd"
+		:title="unavailableReason || ''"
 	>
 		<div class="card-item-image-container">
 			<v-img
@@ -19,11 +23,23 @@
 					</div>
 				</template>
 			</v-img>
+			<v-chip
+				v-if="isUnavailable"
+				size="x-small"
+				color="error"
+				variant="flat"
+				class="unavailable-chip"
+			>
+				{{ __("Unavailable now") }}
+			</v-chip>
 		</div>
 		<div class="card-item-content">
 			<div class="card-item-header">
 				<h4 class="card-item-name">{{ item.item_name }}</h4>
 				<span class="card-item-code">{{ item.item_code }}</span>
+			</div>
+			<div v-if="isUnavailable && unavailableReason" class="card-item-unavailable-reason">
+				{{ unavailableReason }}
 			</div>
 			<div class="card-item-details">
 				<div class="card-item-price">
@@ -81,6 +97,7 @@
 <script setup>
 import { computed } from "vue";
 import placeholderImage from "../placeholder-image.png";
+const __ = window.__ || ((text) => text);
 
 const props = defineProps({
 	item: { type: Object, required: true },
@@ -98,6 +115,10 @@ const props = defineProps({
 });
 
 const emit = defineEmits(["click", "dragstart", "dragend"]);
+const isUnavailable = computed(() => !!props.item?.posa_unavailable);
+const unavailableReason = computed(() =>
+	String(props.item?.posa_unavailable_reason || "").trim(),
+);
 
 const primaryCurrency = computed(() => {
 	if (props.context === "purchase") return props.posProfile.currency;
@@ -147,6 +168,10 @@ const onClick = (event) => {
 };
 
 const onDragStart = (event) => {
+	if (isUnavailable.value) {
+		event.preventDefault();
+		return;
+	}
 	emit("dragstart", event, props.item);
 };
 
@@ -192,12 +217,31 @@ const onDragEnd = (event) => {
 	background: rgba(var(--v-theme-primary), 0.08);
 }
 
+.card-item-card.item-unavailable {
+	opacity: 0.66;
+	filter: grayscale(0.16);
+	cursor: not-allowed;
+}
+
+.card-item-card.item-unavailable:hover {
+	transform: none;
+	box-shadow: 0 2px 8px rgba(var(--v-theme-on-surface), 0.06);
+	border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+}
+
 .card-item-image-container {
 	position: relative;
 	height: 120px;
 	flex-shrink: 0;
 	overflow: hidden;
 	background: rgb(var(--v-theme-surface-variant));
+}
+
+.unavailable-chip {
+	position: absolute;
+	top: 8px;
+	left: 8px;
+	z-index: 2;
 }
 
 .card-item-image {
@@ -249,6 +293,13 @@ const onDragEnd = (event) => {
 	white-space: nowrap;
 	overflow: hidden;
 	text-overflow: ellipsis;
+}
+
+.card-item-unavailable-reason {
+	font-size: 0.74rem;
+	color: rgb(var(--v-theme-error));
+	margin-bottom: 6px;
+	line-height: 1.2;
 }
 
 .card-item-details {

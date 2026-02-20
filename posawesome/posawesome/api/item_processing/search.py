@@ -9,6 +9,7 @@ from frappe import _, as_json
 from frappe.utils import cint, cstr, get_datetime
 from frappe.utils.caching import redis_cache
 
+from posawesome.posawesome.api.availability import get_unavailable_item_reason_map
 from posawesome.posawesome.api.item_fetchers import ItemDetailAggregator
 from posawesome.posawesome.api.utils import (
     HAS_VARIANTS_EXCLUSION,
@@ -203,6 +204,10 @@ def _build_search_plan(
         "brand",
         "allow_negative_stock",
     ]
+    if frappe.db.has_column("Item", "posa_modifier_profile"):
+        fields.append("posa_modifier_profile")
+    if frappe.db.has_column("Item", "posa_popular_rank"):
+        fields.append("posa_popular_rank")
     if include_description:
         fields.append("description")
     if include_image:
@@ -474,7 +479,17 @@ def _run_item_query(
         if len(items_data) < plan.page_size:
             break
 
-    return result[: plan.limit_page_length] if plan.limit_page_length else result
+    final_rows = result[: plan.limit_page_length] if plan.limit_page_length else result
+    unavailable_map = get_unavailable_item_reason_map(
+        [row.get("item_code") for row in final_rows],
+        default_warehouse=pos_profile.get("warehouse"),
+        pos_profile=pos_profile.get("name"),
+    )
+    for row in final_rows:
+        reason = unavailable_map.get(row.get("item_code"))
+        row["posa_unavailable"] = bool(reason)
+        row["posa_unavailable_reason"] = reason or ""
+    return final_rows
 
 
 def _execute_item_search(

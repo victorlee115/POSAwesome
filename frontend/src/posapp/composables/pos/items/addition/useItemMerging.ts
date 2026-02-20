@@ -10,9 +10,64 @@ export function useItemMerging() {
 		!entry.posa_is_replace &&
 		Number.parseFloat(entry.qty) !== 0;
 
+	const normalizeModifierKey = (entry: MergeEntry) => {
+		const explicit = String(entry?.posa_modifier_signature || "").trim();
+		if (explicit) {
+			return explicit;
+		}
+
+		const raw = entry?.posa_modifiers_json;
+		if (!raw) {
+			return "";
+		}
+		if (typeof raw !== "string") {
+			try {
+				return JSON.stringify(raw);
+			} catch (_error) {
+				return "";
+			}
+		}
+
+		const trimmed = raw.trim();
+		if (!trimmed) {
+			return "";
+		}
+
+		try {
+			const parsed = JSON.parse(trimmed);
+			const source =
+				parsed && typeof parsed === "object" && parsed.selections && typeof parsed.selections === "object"
+					? parsed.selections
+					: parsed;
+			if (!source || typeof source !== "object") {
+				return "";
+			}
+			const normalized = Object.entries(source as Record<string, any>)
+				.map(([group, values]) => {
+					const list = Array.isArray(values) ? values : values != null ? [values] : [];
+					const cleaned = list
+						.map((value: any) => {
+							if (value && typeof value === "object") {
+								return String(value.value || value.option_value || value.label || "").trim();
+							}
+							return String(value || "").trim();
+						})
+						.filter(Boolean)
+						.sort();
+					return [group, cleaned] as [string, string[]];
+				})
+				.filter(([, values]) => values.length > 0)
+				.sort(([a], [b]) => a.localeCompare(b));
+			return JSON.stringify(normalized);
+		} catch (_error) {
+			return trimmed;
+		}
+	};
+
 	const buildMergeKey = (entry: MergeEntry, requireBatch: boolean) => {
 		const batchPart = requireBatch ? entry?.batch_no || "" : "";
-		return `${entry?.item_code || ""}::${entry?.uom || ""}::${batchPart}`;
+		const modifierPart = normalizeModifierKey(entry);
+		return `${entry?.item_code || ""}::${entry?.uom || ""}::${batchPart}::${modifierPart}`;
 	};
 
 	const ensureMergeCache = (context: MergeContext) => {
@@ -154,12 +209,18 @@ export function useItemMerging() {
 		context: MergeContext,
 	) {
 		// Find a matching item (by item_code, uom, and rate)
-		const match = items.find(
-			(item) =>
+		const targetModifierKey = normalizeModifierKey(newItem);
+		const targetBatch = newItem?.has_batch_no ? newItem?.batch_no || "" : "";
+		const match = items.find((item) => {
+			const itemBatch = item?.has_batch_no ? item?.batch_no || "" : "";
+			return (
 				item.item_code === newItem.item_code &&
 				item.uom === newItem.uom &&
-				item.rate === newItem.rate,
-		);
+				item.rate === newItem.rate &&
+				itemBatch === targetBatch &&
+				normalizeModifierKey(item) === targetModifierKey
+			);
+		});
 		if (match) {
 			// If found, increment quantity
 			match.qty += newItem.qty || 1;

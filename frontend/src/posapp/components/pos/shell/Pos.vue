@@ -61,6 +61,17 @@
 			>
 				<Payments></Payments>
 			</v-col>
+			<v-col
+				v-show="activeView === 'prep'"
+				xl="5"
+				lg="5"
+				md="5"
+				sm="5"
+				cols="12"
+				class="pos dynamic-col"
+			>
+				<PrepQueue :pos-profile="posProfile" @back="uiStore.setActiveView('items')" />
+			</v-col>
 
 			<v-col xl="7" lg="7" md="7" sm="7" cols="12" class="pos dynamic-col">
 				<Invoice></Invoice>
@@ -74,6 +85,7 @@ import ItemsSelector from "../items/ItemsSelector.vue";
 import Invoice from "../Invoice.vue";
 import OpeningDialog from "../shift/OpeningDialog.vue";
 import Payments from "../Payments.vue";
+import PrepQueue from "../PrepQueue.vue";
 import PosOffers from "../offers/PosOffers.vue";
 import PosCoupons from "../offers/PosCoupons.vue";
 import Drafts from "../flows/Drafts.vue";
@@ -139,6 +151,7 @@ export default {
 			invoiceStore,
 			itemsStore,
 			activeView,
+			posProfile,
 			eventBus,
 			dialog,
 		};
@@ -156,6 +169,7 @@ export default {
 		Invoice,
 		OpeningDialog,
 		Payments,
+		PrepQueue,
 		Drafts,
 
 		Returns,

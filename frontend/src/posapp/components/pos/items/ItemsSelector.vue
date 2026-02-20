@@ -57,8 +57,8 @@
 					ref="itemHeader"
 				/>
 
-				<ItemSettingsDialog
-					v-model="show_item_settings"
+					<ItemSettingsDialog
+						v-model="show_item_settings"
 					:initial-settings="{
 						hide_qty_decimals,
 						hide_zero_rate_items,
@@ -69,8 +69,26 @@
 						items_per_page,
 						force_server_items: temp_force_server_items,
 					}"
-					@save="applyItemSettings"
-				/>
+						@save="applyItemSettings"
+					/>
+
+					<div v-if="popularItems.length" class="popular-drinks-bar">
+						<div class="popular-drinks-title">{{ __("Popular Drinks") }}</div>
+						<v-slide-group show-arrows>
+							<v-slide-group-item v-for="popular in popularItems" :key="popular.item_code">
+								<v-chip
+									class="mr-2"
+									size="small"
+									color="primary"
+									variant="outlined"
+									:disabled="!!popular.posa_unavailable"
+									@click="handlePopularTap(popular)"
+								>
+									{{ popular.item_name }}
+								</v-chip>
+							</v-slide-group-item>
+						</v-slide-group>
+					</div>
 
 				<v-row class="items">
 					<v-col cols="12" class="pt-0 mt-0">
@@ -134,17 +152,29 @@
 				</v-row>
 			</div>
 		</v-card>
-		<ItemActionToolbar
-			v-model="item_group"
-			:items-group="items_group"
-			v-model:items-view="items_view"
-			:pos-profile="pos_profile"
-			:active-price-list="active_price_list"
-			:offers-count="offersCount"
-			:coupons-count="couponsCount"
-			@open-offers="uiStore.setActiveView('offers')"
-			@open-coupons="uiStore.setActiveView('coupons')"
-		/>
+			<ItemActionToolbar
+				v-model="item_group"
+				:items-group="items_group"
+				v-model:items-view="items_view"
+				:pos-profile="pos_profile"
+				:active-price-list="active_price_list"
+				:offers-count="offersCount"
+				:coupons-count="couponsCount"
+				:prep-enabled="prepQueueEnabled"
+				@open-offers="uiStore.setActiveView('offers')"
+				@open-coupons="uiStore.setActiveView('coupons')"
+				@open-prep="uiStore.setActiveView('prep')"
+			/>
+
+			<ModifierProfileDialog
+				v-model="modifierDialogVisible"
+				:item="modifierDialogItem"
+				:profile="modifierDialogProfile"
+				:loading="modifierDialogLoading"
+				:format-currency="modifierDialogFormatCurrency"
+				@confirm="onModifierDialogConfirm"
+				@cancel="onModifierDialogCancel"
+			/>
 
 		<!-- New Item Dialog -->
 		<NewItemDialog v-model="newItemDialog" :items-group="items_group" @item-created="handleItemCreated" />
@@ -185,6 +215,7 @@ import ItemHeader from "./ItemHeader.vue";
 import ItemsSelectorCards from "./ItemsSelectorCards.vue";
 import ItemsSelectorTable from "./ItemsSelectorTable.vue";
 import NewItemDialog from "./NewItemDialog.vue";
+import ModifierProfileDialog from "./ModifierProfileDialog.vue";
 import ScanErrorDialog from "./ScanErrorDialog.vue";
 
 import { useResponsive } from "../../../composables/core/useResponsive";
@@ -217,6 +248,15 @@ import { useUIStore } from "../../../stores/uiStore";
 import { useInvoiceStore } from "../../../stores/invoiceStore";
 
 import { parseBooleanSetting } from "../../../utils/stock";
+import matchaService from "../../../services/matchaService";
+import {
+	buildDefaultSelections,
+	buildDrinkCode,
+	buildModifierSignature,
+	buildModifierSummary,
+	normalizeModifierSelections,
+	type ModifierProfilePayload,
+} from "../../../utils/modifierUtils";
 
 const props = defineProps({
 	context: {
@@ -294,6 +334,13 @@ const item_group = ref("");
 const current_invoice_type = ref("Invoice");
 const virtualScrollBuffer = ref(200);
 const localStorageAvailable = ref(true);
+const popularTapTimestamp = ref<Record<string, number>>({});
+
+const modifierDialogVisible = ref(false);
+const modifierDialogItem = ref<any>(null);
+const modifierDialogProfile = ref<ModifierProfilePayload | null>(null);
+const modifierDialogLoading = ref(false);
+let modifierDialogResolver: null | ((value: any) => void) = null;
 
 // Settings Refs
 const hide_qty_decimals = ref(false);
@@ -328,6 +375,9 @@ const stock_settings = computed(() => stock_settings_ref.value || {});
 const items_group = computed(() => itemsIntegration.items_group.value || []);
 const offersCount = computed(() => uiStore.offersCount || 0);
 const couponsCount = computed(() => uiStore.couponsCount || 0);
+const prepQueueEnabled = computed(() =>
+	parseBooleanSetting(pos_profile.value?.posa_enable_prep_queue),
+);
 // selected_currency is now a local ref synced via eventBus
 const active_price_list = computed(
 	() => itemsIntegration.active_price_list.value || pos_profile.value?.selling_price_list,
@@ -351,6 +401,30 @@ const deferStockValidationToPayment = computed(() =>
 );
 
 const { items, filteredItems, customer_price_list, loading, isBackgroundLoading } = itemsIntegration;
+
+const popularItems = computed(() => {
+	const source = Array.isArray(items.value) ? items.value : [];
+	const ranked = source
+		.filter((item: any) => item && item.item_code && !item.has_variants)
+		.sort((a: any, b: any) => {
+			const rankA = Number.isFinite(Number(a.posa_popular_rank))
+				? Number(a.posa_popular_rank)
+				: Number.MAX_SAFE_INTEGER;
+			const rankB = Number.isFinite(Number(b.posa_popular_rank))
+				? Number(b.posa_popular_rank)
+				: Number.MAX_SAFE_INTEGER;
+			if (rankA !== rankB) {
+				return rankA - rankB;
+			}
+			const matchaA = String(a.item_name || "").toLowerCase().includes("matcha") ? -1 : 0;
+			const matchaB = String(b.item_name || "").toLowerCase().includes("matcha") ? -1 : 0;
+			if (matchaA !== matchaB) {
+				return matchaA - matchaB;
+			}
+			return String(a.item_name || "").localeCompare(String(b.item_name || ""));
+		});
+	return ranked.slice(0, 8);
+});
 
 const displayedItems = computed(() => {
 	const baseItems = Array.isArray(filteredItems.value) ? filteredItems.value : [];
@@ -468,6 +542,124 @@ const {
 	loadVisibleItems: () => itemsLoader.loadVisibleItems(),
 });
 
+const fetchModifierProfile = async (itemCode: string): Promise<ModifierProfilePayload | null> => {
+	if (!itemCode || !pos_profile.value?.name) {
+		return null;
+	}
+	try {
+		modifierDialogLoading.value = true;
+		const payload = await matchaService.getModifierProfile(itemCode, pos_profile.value.name);
+		return payload as ModifierProfilePayload;
+	} catch (error) {
+		console.error("Failed to load modifier profile", error);
+		return null;
+	} finally {
+		modifierDialogLoading.value = false;
+	}
+};
+
+const openModifierDialog = (item: any, profile: ModifierProfilePayload) => {
+	modifierDialogItem.value = item;
+	modifierDialogProfile.value = profile;
+	modifierDialogVisible.value = true;
+
+	return new Promise((resolve) => {
+		modifierDialogResolver = resolve;
+	});
+};
+
+const resolveModifierSelection = async (
+	item: any,
+	options: { forceModifierDialog?: boolean; fromPopular?: boolean } = {},
+) => {
+	const profile = await fetchModifierProfile(item.item_code);
+	if (!profile || !Array.isArray(profile.groups) || profile.groups.length === 0) {
+		return null;
+	}
+
+	const useDefaults = options.fromPopular && !options.forceModifierDialog;
+	if (useDefaults) {
+		const selections = normalizeModifierSelections(buildDefaultSelections(profile));
+		const summary = buildModifierSummary(profile, selections);
+		return {
+			selections,
+			summary: summary.summary,
+			delta_total: Number(summary.delta || 0),
+			option_codes: summary.optionCodes,
+			drink_code: buildDrinkCode(item.item_code, profile.drink_code_prefix, summary.optionCodes),
+			signature: buildModifierSignature(selections),
+			modifiers_json: JSON.stringify({
+				profile: profile.profile,
+				selections,
+				summary: summary.summary,
+			}),
+			prep_status: profile.default_prep_status || "Paid",
+		};
+	}
+
+	const dialogSelection = await openModifierDialog(item, profile);
+	return dialogSelection;
+};
+
+const applyModifierSelectionToItem = (item: any, selection: any) => {
+	if (!selection) {
+		return;
+	}
+
+	const normalizedSelections = normalizeModifierSelections(selection.selections || {});
+	const delta = Number(selection.delta_total || 0);
+	const signature = selection.signature || buildModifierSignature(normalizedSelections);
+
+	item.posa_modifiers_json =
+		selection.modifiers_json ||
+		JSON.stringify({
+			selections: normalizedSelections,
+			summary: selection.summary || "",
+		});
+	item.posa_modifier_summary = selection.summary || "";
+	item.posa_modifiers_delta = delta;
+	item.posa_modifier_signature = signature;
+	item.posa_drink_code = selection.drink_code || buildDrinkCode(item.item_code, "", []);
+	item.posa_prep_status = selection.prep_status || "Paid";
+
+	if (delta) {
+		const rate = Number(item.rate ?? item.price_list_rate ?? 0);
+		item.rate = rate + delta;
+		if (item.price_list_rate !== undefined && item.price_list_rate !== null) {
+			item.price_list_rate = Number(item.price_list_rate || 0) + delta;
+		}
+	}
+};
+
+const onModifierDialogConfirm = (selection: any) => {
+	if (modifierDialogResolver) {
+		modifierDialogResolver(selection);
+	}
+	modifierDialogResolver = null;
+	modifierDialogVisible.value = false;
+};
+
+const onModifierDialogCancel = () => {
+	if (modifierDialogResolver) {
+		modifierDialogResolver(null);
+	}
+	modifierDialogResolver = null;
+	modifierDialogVisible.value = false;
+};
+
+const handlePopularTap = async (item: any) => {
+	const now = Date.now();
+	const key = String(item?.item_code || "");
+	const lastTap = popularTapTimestamp.value[key] || 0;
+	popularTapTimestamp.value[key] = now;
+
+	const forceModifierDialog = now - lastTap < 1800;
+	await add_item(item, {
+		fromPopular: true,
+		forceModifierDialog,
+	});
+};
+
 // 5. Core Methods
 const add_item = async (item, optionsOrQty: any = {}) => {
 	if (props.context === "pos") {
@@ -477,6 +669,14 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 			requestedQty === "" || requestedQty == null ? 1 : Math.abs(parseFloat(requestedQty) || 1);
 
 		item = { ...item };
+		if (item.posa_unavailable) {
+			toastStore.show({
+				title: __("Item unavailable"),
+				detail: item.posa_unavailable_reason || __("This item is currently unavailable."),
+				color: "warning",
+			});
+			return;
+		}
 		if (item.has_variants) {
 			await useItemAddition().handleVariantItem(item, {
 				pos_profile: pos_profile.value,
@@ -509,8 +709,8 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 			...options,
 		};
 
-		const isValid = await cartValidation.validateCartItem(
-			item,
+			const isValid = await cartValidation.validateCartItem(
+				item,
 			requestedQty,
 			pos_profile.value,
 			stock_settings.value,
@@ -520,12 +720,30 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 			true,
 			isReturnInvoice.value,
 			deferStockValidationToPayment.value,
-		);
+			);
 
-		if (isValid) {
-			await useItemAddition().prepareItemForCart(item, requestedQty, context);
-			await useItemAddition().addItem(item, context);
-			if (eventBus && typeof eventBus.emit === "function") {
+			if (isValid) {
+				const selection = await resolveModifierSelection(item, {
+					forceModifierDialog: !!options.forceModifierDialog,
+					fromPopular: !!options.fromPopular,
+				});
+				if (
+					Array.isArray((selection as any)?.errors) &&
+					(selection as any).errors.length
+				) {
+					const firstError = (selection as any).errors[0];
+					toastStore.show({
+						title: __("Modifier validation failed"),
+						detail: firstError?.message || __("Please review modifier choices."),
+						color: "error",
+					});
+					return;
+				}
+				applyModifierSelectionToItem(item, selection);
+
+				await useItemAddition().prepareItemForCart(item, requestedQty, context);
+				await useItemAddition().addItem(item, context);
+				if (eventBus && typeof eventBus.emit === "function") {
 				eventBus.emit("apply_pricing_rules");
 			}
 			qty.value = 1;
@@ -592,6 +810,10 @@ const clearSearchAndQty = () => {
 };
 
 const onDragStart = (event, item) => {
+	if (item?.posa_unavailable) {
+		event.preventDefault();
+		return;
+	}
 	isDragging.value = true;
 	event.dataTransfer.setData("application/json", JSON.stringify({ type: "item-from-selector", item }));
 	event.dataTransfer.effectAllowed = "copy";
@@ -810,6 +1032,10 @@ onMounted(async () => {
 onBeforeUnmount(() => {
 	if (initTimeout.value) clearTimeout(initTimeout.value);
 	itemSync.stopBackgroundSyncScheduler();
+	if (modifierDialogResolver) {
+		modifierDialogResolver(null);
+		modifierDialogResolver = null;
+	}
 	// @ts-ignore
 	if (itemWorker.value) itemWorker.value.terminate();
 	if (eventBus) {
@@ -849,6 +1075,18 @@ const currencySymbol = itemDisplay.currencySymbol;
 const headers = computed(() => itemDisplay.headers.value);
 const memoizedFormatCurrency = computed(() => itemDisplay.memoizedFormatCurrency.value);
 const memoizedFormatNumber = computed(() => itemDisplay.memoizedFormatNumber.value);
+const modifierDialogFormatCurrency = (value: number) => {
+	const formatter = memoizedFormatCurrency.value as any;
+	if (typeof formatter === "function") {
+		const result = formatter(
+			value,
+			selected_currency.value || pos_profile.value?.currency,
+			ratePrecision(value),
+		);
+		return String(result ?? value ?? 0);
+	}
+	return String(value ?? 0);
+};
 
 const isItemHighlighted = (index) => itemSelection.highlightedIndex.value === index;
 const isNegative = (val) => val < 0;
@@ -917,15 +1155,26 @@ const handleInvoiceTypeUpdate = (type: unknown) => {
 	current_invoice_type.value = normalized || "Invoice";
 };
 
-const getItemRowClass = (item) => ({
-	"pos-item-row": true,
-	highlighted: isItemHighlighted(items.value.indexOf(item)),
-});
+const resolveTableItem = (item: any) => item?.raw || item?.item || item;
 
-const getItemRowProps = (item) => ({
-	"data-item-code": item.item_code,
-	draggable: true,
-});
+const getItemRowClass = (item: any) => {
+	const resolved = resolveTableItem(item);
+	const highlightedIndex = displayedItems.value.indexOf(resolved);
+	return {
+		"pos-item-row": true,
+		highlighted: isItemHighlighted(highlightedIndex),
+		"item-row-unavailable": !!resolved?.posa_unavailable,
+	};
+};
+
+const getItemRowProps = (item: any) => {
+	const resolved = resolveTableItem(item);
+	return {
+		"data-item-code": resolved?.item_code,
+		draggable: !resolved?.posa_unavailable,
+		class: resolved?.posa_unavailable ? "item-row-unavailable" : "",
+	};
+};
 
 const handleItemCreated = (_item) => {
 	newItemDialog.value = false;
@@ -1073,6 +1322,10 @@ defineExpose({
 	-moz-osx-font-smoothing: grayscale;
 }
 
+:deep(.item-row-unavailable td) {
+	opacity: 0.65;
+}
+
 /* Enhanced input fields for Arabic number support */
 .v-text-field :deep(input),
 .v-select :deep(input),
@@ -1100,6 +1353,31 @@ defineExpose({
 
 .selection {
 	background-color: var(--surface-secondary) !important;
+}
+
+.popular-drinks-bar {
+	margin: 8px 0 14px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	background:
+		linear-gradient(120deg, rgba(238, 250, 237, 0.95), rgba(248, 252, 245, 0.98)),
+		rgba(var(--v-theme-surface), 0.9);
+	border: 1px solid rgba(var(--v-theme-primary), 0.22);
+}
+
+.popular-drinks-title {
+	font-weight: 700;
+	font-size: 0.88rem;
+	margin-bottom: 8px;
+	color: rgb(var(--v-theme-primary));
+	letter-spacing: 0.02em;
+	text-transform: uppercase;
+}
+
+:deep(.popular-drinks-bar .v-chip) {
+	min-height: 44px;
+	padding-inline: 14px;
+	font-weight: 600;
 }
 
 .item-selection-option {

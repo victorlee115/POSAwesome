@@ -13,7 +13,7 @@ export const useUIStore = defineStore("ui", () => {
   const freezeMessage = ref("");
 
   // Main POS View State (Active View)
-  const activeView = ref<string>("items"); // 'items', 'payment', 'offers', 'coupons'
+  const activeView = ref<string>("items"); // 'items', 'payment', 'offers', 'coupons', 'prep'
 
   const draftsDialog = ref(false);
   const draftsData = ref<any[]>([]);

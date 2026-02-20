@@ -287,6 +287,10 @@ self.onmessage = async (event) => {
 				has_batch_no: it.has_batch_no,
 				has_serial_no: it.has_serial_no,
 				has_variants: !!it.has_variants,
+				posa_modifier_profile: it.posa_modifier_profile || "",
+				posa_popular_rank: it.posa_popular_rank,
+				posa_unavailable: !!it.posa_unavailable,
+				posa_unavailable_reason: it.posa_unavailable_reason || "",
 				barcodes: Array.isArray(it.item_barcode)
 					? it.item_barcode.map((b) => b.barcode).filter(Boolean)
 					: it.item_barcode

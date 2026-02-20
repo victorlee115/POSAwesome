@@ -23,8 +23,8 @@
 					readonly
 				></v-text-field>
 			</v-col>
-			<v-col cols="3" class="dynamic-margin-xs">
-				<v-btn-toggle
+				<v-col :cols="prepEnabled ? 3 : 4" class="dynamic-margin-xs">
+					<v-btn-toggle
 					:model-value="itemsView"
 					@update:model-value="$emit('update:itemsView', $event)"
 					color="primary"
@@ -37,10 +37,10 @@
 					<v-btn size="small" value="card">{{ __("Card") }}</v-btn>
 				</v-btn-toggle>
 			</v-col>
-			<v-col cols="5" class="dynamic-margin-xs">
-				<v-btn
-					size="small"
-					block
+				<v-col :cols="prepEnabled ? 3 : 4" class="dynamic-margin-xs">
+					<v-btn
+						size="small"
+						block
 					color="warning"
 					variant="text"
 					@click="$emit('open-offers')"
@@ -48,21 +48,33 @@
 				>
 					{{ offersCount }} {{ __("Offers") }}
 				</v-btn>
-			</v-col>
-			<v-col cols="4" class="dynamic-margin-xs">
-				<v-btn
-					size="small"
-					block
+				</v-col>
+				<v-col :cols="prepEnabled ? 3 : 4" class="dynamic-margin-xs">
+					<v-btn
+						size="small"
+						block
 					color="primary"
 					variant="text"
 					@click="$emit('open-coupons')"
 					class="action-btn-consistent"
 				>
-					{{ couponsCount }} {{ __("Coupons") }}
-				</v-btn>
-			</v-col>
-		</v-row>
-	</v-card>
+						{{ couponsCount }} {{ __("Coupons") }}
+					</v-btn>
+				</v-col>
+				<v-col cols="3" class="dynamic-margin-xs" v-if="prepEnabled">
+					<v-btn
+						size="small"
+						block
+						color="success"
+						variant="text"
+						@click="$emit('open-prep')"
+						class="action-btn-consistent"
+					>
+						{{ __("Prep Queue") }}
+					</v-btn>
+				</v-col>
+			</v-row>
+		</v-card>
 </template>
 
 <script setup>
@@ -77,14 +89,15 @@ defineProps({
 	activePriceList: { type: String, default: "" },
 	offersCount: { type: Number, default: 0 },
 	couponsCount: { type: Number, default: 0 },
+	prepEnabled: { type: Boolean, default: false },
 });
 
-defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupons"]);
+defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupons", "open-prep"]);
 </script>
 
 <style scoped>
 .action-btn-consistent {
-	height: 32px !important;
+	height: 40px !important;
 	margin-top: var(--dynamic-xs) !important;
 	padding: var(--dynamic-xs) var(--dynamic-sm) !important;
 	transition: var(--transition-normal) !important;
@@ -96,7 +109,7 @@ defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupo
 }
 
 .view-toggle-btn {
-	height: 32px;
+	height: 40px;
 	border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
 }
 
@@ -132,6 +145,13 @@ defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupo
 @media (max-width: 480px) {
 	.cards {
 		padding: var(--dynamic-xs) !important;
+	}
+}
+
+@media (pointer: coarse) {
+	.action-btn-consistent,
+	.view-toggle-btn {
+		height: 44px !important;
 	}
 }
 </style>

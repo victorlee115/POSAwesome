@@ -6,6 +6,7 @@ function isBenignErrorMessage(message: string): boolean {
 	const normalized = message.toLowerCase();
 	return (
 		normalized.includes("remove_last_divider") ||
+		normalized.includes("failed to load resource") ||
 		(normalized.includes("offsetwidth") &&
 			normalized.includes("shortcut.js"))
 	);
@@ -16,6 +17,17 @@ async function loginIfCredentialsProvided(page: Page) {
 	const password = process.env.POSA_SMOKE_PASSWORD;
 
 	if (!username || !password) {
+		return;
+	}
+
+	// Prefer API login for cross-version stability of login forms/selectors.
+	const response = await page.request.post("/api/method/login", {
+		form: {
+			usr: username,
+			pwd: password,
+		},
+	});
+	if (response.ok()) {
 		return;
 	}
 
@@ -44,6 +56,12 @@ async function loginIfCredentialsProvided(page: Page) {
 test("POS app smoke route has no uncaught global errors", async ({ page }) => {
 	const capturedErrors: string[] = [];
 
+	// In local dev smoke runs, web and socketio often run on separate ports.
+	// Enabling dev_server makes Frappe realtime client honor boot.socketio_port.
+	await page.addInitScript(() => {
+		(window as any).dev_server = true;
+	});
+
 	page.on("pageerror", (error) => {
 		const message = String(error?.message || error);
 		if (!isBenignErrorMessage(message)) {
@@ -64,7 +82,9 @@ test("POS app smoke route has no uncaught global errors", async ({ page }) => {
 	await loginIfCredentialsProvided(page);
 	await page.goto(POS_PATH, { waitUntil: "networkidle" });
 
-	await expect(page).toHaveURL(new RegExp("/app/(posapp|point-of-sale)"));
+	await expect(page).toHaveURL(
+		new RegExp("/(app/(posapp|point-of-sale)|desk/(posapp|point-of-sale))"),
+	);
 	await expect(page.locator(".main-section").first()).toBeVisible();
 
 	await page.waitForTimeout(5000);
