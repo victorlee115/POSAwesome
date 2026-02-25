@@ -51,6 +51,7 @@
 							density="comfortable"
 							hide-details="auto"
 							data-test="cup-label-name"
+							readonly
 						/>
 					</section>
 
@@ -244,6 +245,7 @@
 						:highlightSubmit="highlightSubmit"
 						:primary-label="primarySubmitLabel"
 						:secondary-label="secondarySubmitLabel"
+						:always-print="!!(pos_profile?.posa_always_print_receipt)"
 						@submit="submit"
 						@submit-and-print="submit(undefined, false, true)"
 						@cancel="back_to_invoice"

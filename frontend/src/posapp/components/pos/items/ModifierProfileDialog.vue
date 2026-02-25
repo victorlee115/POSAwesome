@@ -78,20 +78,34 @@
 				</div>
 			</v-card-text>
 
-			<v-card-actions>
-				<v-btn variant="text" @click="emitCancel">{{ __("Cancel") }}</v-btn>
-				<v-spacer />
-				<v-btn
-					v-if="groups.length"
-					variant="tonal"
-					color="secondary"
-					@click="applyDefaults"
-				>
-					{{ __("Use Defaults") }}
-				</v-btn>
-				<v-btn color="primary" variant="flat" :disabled="!canApply" @click="emitConfirm">{{
-					__("Apply")
-				}}</v-btn>
+			<v-card-actions class="modifier-dialog-actions">
+				<div class="modifier-action-stack">
+					<v-btn
+						v-if="groups.length"
+						block
+						color="primary"
+						variant="flat"
+						class="modifier-primary-btn"
+						@click="applyDefaultsAndConfirm"
+					>
+						{{ __("Use Defaults") }}
+					</v-btn>
+					<v-btn
+						block
+						color="primary"
+						variant="flat"
+						class="modifier-primary-btn"
+						:disabled="!canApply"
+						@click="emitConfirm"
+					>
+						{{ __("Apply") }}
+					</v-btn>
+					<div class="modifier-cancel-row">
+						<button type="button" class="modifier-cancel-link" @click="emitCancel">
+							{{ __("Cancel") }}
+						</button>
+					</div>
+				</div>
 			</v-card-actions>
 		</v-card>
 	</v-dialog>
@@ -273,6 +287,13 @@ const applyDefaults = () => {
 	buildInitialSelections();
 };
 
+const applyDefaultsAndConfirm = () => {
+	applyDefaults();
+	// Emit confirm immediately after defaults are applied
+	// Use nextTick equivalent — selections are reactive so emit in microtask
+	Promise.resolve().then(() => emitConfirm());
+};
+
 const emitCancel = () => {
 	emit("cancel");
 	emit("update:modelValue", false);
@@ -353,5 +374,46 @@ const emitConfirm = () => {
 .modifier-chip-selected {
 	background-color: rgba(var(--v-theme-primary), 0.12) !important;
 	border-color: rgb(var(--v-theme-primary)) !important;
+}
+
+.modifier-dialog-actions {
+	padding: 12px 16px 16px !important;
+}
+
+.modifier-action-stack {
+	width: 100%;
+	display: flex;
+	flex-direction: column;
+	gap: 10px;
+}
+
+.modifier-primary-btn {
+	min-height: 52px !important;
+	font-size: 1rem !important;
+	font-weight: 800 !important;
+	border-radius: 14px !important;
+	text-transform: none !important;
+}
+
+.modifier-cancel-row {
+	display: flex;
+	justify-content: center;
+	padding-top: 2px;
+}
+
+.modifier-cancel-link {
+	background: none;
+	border: none;
+	padding: 6px 12px;
+	cursor: pointer;
+	color: #9aa8ba;
+	font-size: 0.88rem;
+	font-weight: 600;
+	text-decoration: underline;
+	text-underline-offset: 2px;
+}
+
+.modifier-cancel-link:hover {
+	color: #c13737;
 }
 </style>

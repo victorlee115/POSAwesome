@@ -656,3 +656,8 @@
 		scroll-behavior: auto !important;
 	}
 }
+
+/* Hide item code (SKU) from item cards — irrelevant during cashier selling */
+.container1 .card-item-code {
+	display: none !important;
+}

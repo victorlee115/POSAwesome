@@ -10,9 +10,9 @@
 		@dragend="onDragEnd"
 		:title="unavailableReason || ''"
 	>
-		<div class="card-item-image-container">
+		<div v-if="item.image" class="card-item-image-container">
 			<v-img
-				:src="item.image || placeholderImage"
+				:src="item.image"
 				class="card-item-image"
 				aspect-ratio="1"
 				:alt="item.item_name"
@@ -140,7 +140,7 @@ const primaryRate = computed(() => {
 });
 
 const primaryPrecision = computed(() => {
-	return props.ratePrecision(primaryRate.value);
+	return Math.max(props.ratePrecision(primaryRate.value), 2);
 });
 
 const secondaryCurrency = computed(() => props.selectedCurrency);

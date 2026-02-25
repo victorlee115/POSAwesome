@@ -218,13 +218,15 @@ const __ = window.__;
 }
 
 .payment-denomination-btn {
-	min-height: 40px !important;
+	min-height: 52px !important;
+	min-width: 72px !important;
 	border-radius: 10px !important;
 	padding-inline: 10px !important;
 	background: #e8f8ff !important;
 	color: #066b94 !important;
 	border: 1px solid #b9dff1 !important;
 	font-weight: 700 !important;
+	font-size: 1rem !important;
 	text-transform: none !important;
 }
 

@@ -47,7 +47,7 @@
 							class="posa-meta-chip posa-meta-chip--interactive"
 							@click.stop="cyclePrepStatus(item)"
 						>
-							{{ __("Prep") }}: {{ item.posa_prep_status }}
+							{{ prepStatusLabel(item.posa_prep_status || "Paid") }}
 						</v-chip>
 					</div>
 				</header>
@@ -483,6 +483,16 @@ const cyclePrepStatus = (item: any) => {
 	const index = statuses.indexOf(current);
 	const nextStatus = statuses[(index + 1) % statuses.length] ?? "Paid";
 	handlePrepStatusUpdate(item, nextStatus);
+};
+
+const prepStatusLabel = (status: string): string => {
+	const labels: Record<string, string> = {
+		Paid: __("New Order"),
+		"In Prep": __("Making"),
+		Ready: __("Ready"),
+		Collected: __("Done"),
+	};
+	return labels[status] ?? status;
 };
 
 const requestModifierEdit = (item: any) => {

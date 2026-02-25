@@ -95,7 +95,7 @@ export function useResponsive() {
 			windowWidth.value <= 768
 				? 52
 				: compactTablet
-					? 58
+					? 28
 					: 62;
 
 		return {

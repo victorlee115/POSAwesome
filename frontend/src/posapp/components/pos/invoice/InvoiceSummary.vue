@@ -28,8 +28,8 @@
 							{{ formatCurrency(return_discount_meta.prorated_discount) }}
 						</v-alert>
 					</v-col>
-					<!-- Total Qty -->
-					<v-col cols="6">
+					<!-- Total Qty — hidden in tablet mode -->
+					<v-col cols="6" v-if="!tabletCompact">
 						<v-text-field
 							:model-value="formatFloat(total_qty, hide_qty_decimals ? 0 : undefined)"
 							:label="frappe._('Total Qty')"
@@ -40,8 +40,8 @@
 							color="accent"
 						/>
 					</v-col>
-					<!-- Additional Discount (Amount or Percentage) -->
-					<v-col cols="6" v-if="!pos_profile.posa_use_percentage_discount">
+					<!-- Additional Discount — hidden in tablet mode -->
+					<v-col cols="6" v-if="!tabletCompact && !pos_profile.posa_use_percentage_discount">
 						<v-text-field
 							ref="additionalDiscountField"
 							v-model="additionalDiscountDisplay"
@@ -62,7 +62,7 @@
 						/>
 					</v-col>
 
-					<v-col cols="6" v-else>
+					<v-col cols="6" v-else-if="!tabletCompact">
 						<v-text-field
 							ref="additionalDiscountField"
 							v-model="additionalDiscountPercentageDisplay"
@@ -84,8 +84,8 @@
 							class="summary-field"
 						/>
 					</v-col>
-					<!-- Items Discount -->
-					<v-col cols="6">
+					<!-- Items Discount — hidden in tablet mode -->
+					<v-col cols="6" v-if="!tabletCompact">
 						<v-text-field
 							:model-value="formatCurrency(total_items_discount_amount)"
 							:prefix="currencySymbol(displayCurrency)"
@@ -99,8 +99,8 @@
 						/>
 					</v-col>
 
-					<!-- Total (moved to maintain row alignment) -->
-					<v-col cols="6">
+					<!-- Total -->
+					<v-col :cols="tabletCompact ? 12 : 6">
 						<v-text-field
 							:model-value="formatCurrency(subtotal)"
 							:prefix="currencySymbol(displayCurrency)"
@@ -121,10 +121,10 @@
 				<InvoiceActionButtons
 					class="invoice-actions-section"
 					:pos_profile="pos_profile"
+					:tabletCompact="tabletCompact"
 					:saveLoading="saveLoading"
 					:loadDraftsLoading="loadDraftsLoading"
 					:selectOrderLoading="selectOrderLoading"
-					:selectPurchaseOrderLoading="selectPurchaseOrderLoading"
 					:cancelLoading="cancelLoading"
 					:returnsLoading="returnsLoading"
 					:printLoading="printLoading"
@@ -157,6 +157,10 @@ defineOptions({
 
 const props = defineProps({
 	pos_profile: Object,
+	tabletCompact: {
+		type: Boolean,
+		default: false,
+	},
 	total_qty: [Number, String],
 	additional_discount: Number,
 	additional_discount_percentage: Number,
@@ -170,6 +174,8 @@ const props = defineProps({
 	isNumber: Function,
 	return_discount_meta: Object,
 });
+
+const __ = window.__;
 
 const emit = defineEmits([
 	"update:additional_discount",

@@ -6,7 +6,7 @@
 				class="payment-summary-tile"
 				@click="$emit('show-diff-payment')"
 			>
-				<span class="payment-summary-label">{{ frappe._("Amount Due") }}</span>
+				<span class="payment-summary-label">{{ amountDueDisplay === zeroDisplay ? frappe._("Total") : frappe._("Amount Due") }}</span>
 				<span class="payment-summary-value">{{ currencyPrefix }} {{ amountDueDisplay }}</span>
 			</button>
 

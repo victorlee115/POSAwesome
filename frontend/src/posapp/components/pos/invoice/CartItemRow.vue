@@ -94,7 +94,7 @@
 							class="meta-chip prep-chip"
 							@click.stop="cyclePrepStatus"
 						>
-							{{ __("Prep") }}: {{ prepStatus }}
+							{{ prepStatusLabel }}
 						</v-chip>
 						<v-btn
 							v-if="showLineMeta && !item.posa_is_replace"
@@ -544,6 +544,16 @@ const prepStatus = computed(() => {
 	}
 	const value = String(props.item?.posa_prep_status || "").trim();
 	return value || "Paid";
+});
+
+const prepStatusLabel = computed(() => {
+	const labels: Record<string, string> = {
+		Paid: __("New Order"),
+		"In Prep": __("Making"),
+		Ready: __("Ready"),
+		Collected: __("Done"),
+	};
+	return labels[prepStatus.value] ?? prepStatus.value;
 });
 
 const prepStatusColor = computed(() => {
