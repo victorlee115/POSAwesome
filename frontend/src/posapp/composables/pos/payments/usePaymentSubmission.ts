@@ -205,6 +205,19 @@ export function usePaymentSubmission(options: PaymentSubmissionOptions) {
 		} = options;
 		const diff = unref(diff_payment) || 0;
 		const writeOffAmount = getEffectiveWriteOffAmount(doc, profile, diff);
+		const storeItemsRaw = stores?.invoiceStore?.items;
+		const docItems = Array.isArray(doc?.items) ? doc.items : [];
+		const activeItems = Array.isArray(storeItemsRaw) ? storeItemsRaw : docItems;
+		const hasLineItems = activeItems.some(
+			(item: any) =>
+				item &&
+				!item.posa_is_replace &&
+				Math.abs(formatFloat(item.qty || 0, prec)) > 0,
+		);
+
+		if (!hasLineItems) {
+			throw new Error(__("Cart is empty. Add at least one item before charging."));
+		}
 
 		// 1. Ensure return payments are negative
 		if (doc.is_return) {

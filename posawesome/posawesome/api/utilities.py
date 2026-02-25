@@ -6,7 +6,7 @@ from __future__ import unicode_literals
 
 import frappe
 from frappe.utils import cstr, add_to_date, get_datetime
-from typing import List, Dict, Any
+from typing import List, Dict, Any, Set
 import time
 import os
 import re
@@ -212,10 +212,85 @@ def get_build_info() -> Dict[str, Any]:
     return data
 
 
-def _fetch_remote(app_path: str) -> None:
+def _run_git_command(app_path: str, args: List[str]) -> str:
+    try:
+        return (
+            subprocess.check_output(
+                ["git", *args],
+                cwd=app_path,
+                stderr=subprocess.DEVNULL,
+            )
+            .decode("utf-8")
+            .strip()
+        )
+    except Exception:
+        return ""
+
+
+def _get_remote_names(app_path: str) -> Set[str]:
+    output = _run_git_command(app_path, ["remote"])
+    if not output:
+        return set()
+    return {line.strip() for line in output.splitlines() if line.strip()}
+
+
+def _get_upstream_remote(app_path: str, branch: str) -> str:
+    if not branch:
+        return ""
+    upstream = _run_git_command(
+        app_path,
+        ["for-each-ref", f"refs/heads/{branch}", "--format=%(upstream:short)"],
+    )
+    if not upstream:
+        return ""
+    return upstream.split("/", 1)[0]
+
+
+def _resolve_update_remote(app_path: str, branch: str) -> str:
+    remotes = _get_remote_names(app_path)
+    if not remotes:
+        return "origin"
+
+    configured_remote = (
+        (frappe.conf or {}).get("posawesome_update_remote")
+        or os.environ.get("POSAWESOME_UPDATE_REMOTE")
+        or ""
+    )
+    if configured_remote and configured_remote in remotes:
+        return configured_remote
+
+    candidates: List[str] = []
+    if branch:
+        branch_push_remote = _run_git_command(
+            app_path, ["config", "--get", f"branch.{branch}.pushRemote"]
+        )
+        if branch_push_remote:
+            candidates.append(branch_push_remote)
+
+    push_default_remote = _run_git_command(
+        app_path, ["config", "--get", "remote.pushDefault"]
+    )
+    if push_default_remote:
+        candidates.append(push_default_remote)
+
+    upstream_remote = _get_upstream_remote(app_path, branch)
+    if upstream_remote:
+        candidates.append(upstream_remote)
+
+    candidates.append("origin")
+
+    for remote in candidates:
+        if remote in remotes:
+            return remote
+
+    # Final fallback: first configured remote from local git config.
+    return sorted(remotes)[0]
+
+
+def _fetch_remote(app_path: str, remote_name: str = "origin") -> None:
     try:
         subprocess.check_output(
-            ["git", "fetch", "origin", "--prune", "--quiet"],
+            ["git", "fetch", remote_name, "--prune", "--quiet"],
             cwd=app_path,
             stderr=subprocess.DEVNULL,
         )
@@ -223,11 +298,12 @@ def _fetch_remote(app_path: str) -> None:
         return
 
 
-def _get_remote_heads(app_path: str) -> Dict[str, str]:
+def _get_remote_heads(app_path: str, remote_name: str = "origin") -> Dict[str, str]:
     try:
+        remote_ref = f"refs/remotes/{remote_name}"
         output = (
             subprocess.check_output(
-                ["git", "for-each-ref", "refs/remotes/origin", "--format=%(refname:short) %(objectname)"],
+                ["git", "for-each-ref", remote_ref, "--format=%(refname:short) %(objectname)"],
                 cwd=app_path,
                 stderr=subprocess.DEVNULL,
             )
@@ -240,9 +316,9 @@ def _get_remote_heads(app_path: str) -> Dict[str, str]:
             if len(parts) != 2:
                 continue
             ref, sha = parts
-            if ref == "origin/HEAD":
+            if ref == f"{remote_name}/HEAD":
                 continue
-            branch = ref.replace("origin/", "", 1)
+            branch = ref.replace(f"{remote_name}/", "", 1)
             heads[branch] = sha
         return heads
     except Exception:
@@ -341,10 +417,13 @@ def get_remote_update_info() -> Dict[str, Any]:
     if not app_path or not os.path.exists(app_path):
         return data
 
-    _fetch_remote(app_path)
-    heads = _get_remote_heads(app_path)
-    data["remote_heads"] = heads
     current_branch = _get_current_branch(app_path)
+    update_remote = _resolve_update_remote(app_path, current_branch)
+    data["remote_name"] = update_remote
+
+    _fetch_remote(app_path, update_remote)
+    heads = _get_remote_heads(app_path, update_remote)
+    data["remote_heads"] = heads
     if current_branch:
         data["current_branch"] = current_branch
 
@@ -354,7 +433,7 @@ def get_remote_update_info() -> Dict[str, Any]:
         if remote_head and remote_head != current_hash:
             different = {current_branch: remote_head}
             data["remote_ahead"] = different
-            ref = f"origin/{current_branch}"
+            ref = f"{update_remote}/{current_branch}"
             details = _get_commit_details(app_path, ref)
             if details:
                 data["remote_sample_branch"] = current_branch

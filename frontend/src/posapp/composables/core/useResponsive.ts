@@ -1,5 +1,42 @@
 import { ref, computed, onMounted, onBeforeUnmount } from "vue";
 
+export type PosDeviceProfile =
+	| "tablet_landscape_compact"
+	| "desktop"
+	| "mobile";
+
+export type CatalogRenderMode = "small-menu-grid" | "card-grid" | "table";
+export type CartRenderMode = "tablet-line-list" | "desktop-table";
+export type PaymentLayoutMode = "tablet_quickpay" | "desktop_fullpay";
+
+const SPACING_SCALE = {
+	xs: 4,
+	sm: 8,
+	md: 12,
+	lg: 16,
+	xl: 24,
+	xxl: 32,
+};
+
+export const detectDeviceProfile = (width: number, height: number): PosDeviceProfile => {
+	if (width < 960) {
+		return "mobile";
+	}
+
+	const landscape = width >= height;
+	if (landscape && width <= 1400 && height <= 900) {
+		return "tablet_landscape_compact";
+	}
+
+	return "desktop";
+};
+
+export const getPaymentLayoutMode = (
+	profile: PosDeviceProfile,
+): PaymentLayoutMode => {
+	return profile === "desktop" ? "desktop_fullpay" : "tablet_quickpay";
+};
+
 export function useResponsive() {
 	const windowWidth = ref(window.innerWidth);
 	const windowHeight = ref(window.innerHeight);
@@ -12,35 +49,51 @@ export function useResponsive() {
 		() => (widthScale.value + heightScale.value) / 2,
 	);
 
-	const dynamicSpacing = computed(() => {
-		const baseSpacing = {
-			xs: 4,
-			sm: 8,
-			md: 16,
-			lg: 24,
-			xl: 32,
-		};
+	const isLandscape = computed(() => windowWidth.value >= windowHeight.value);
+	const deviceProfile = computed<PosDeviceProfile>(() =>
+		detectDeviceProfile(windowWidth.value, windowHeight.value),
+	);
 
+	const catalogRenderMode = computed<CatalogRenderMode>(() => {
+		if (deviceProfile.value === "tablet_landscape_compact") {
+			return "small-menu-grid";
+		}
+		if (deviceProfile.value === "mobile") {
+			return "card-grid";
+		}
+		return "card-grid";
+	});
+
+	const cartRenderMode = computed<CartRenderMode>(() => {
+		return deviceProfile.value === "tablet_landscape_compact"
+			? "tablet-line-list"
+			: "desktop-table";
+	});
+
+	const paymentLayoutMode = computed<PaymentLayoutMode>(() => {
+		return getPaymentLayoutMode(deviceProfile.value);
+	});
+
+	const dynamicSpacing = computed(() => {
 		return {
-			xs: Math.max(2, Math.round(baseSpacing.xs * averageScale.value)),
-			sm: Math.max(4, Math.round(baseSpacing.sm * averageScale.value)),
-			md: Math.max(8, Math.round(baseSpacing.md * averageScale.value)),
-			lg: Math.max(12, Math.round(baseSpacing.lg * averageScale.value)),
-			xl: Math.max(16, Math.round(baseSpacing.xl * averageScale.value)),
+			xs: SPACING_SCALE.xs,
+			sm: SPACING_SCALE.sm,
+			md: SPACING_SCALE.md,
+			lg: SPACING_SCALE.lg,
+			xl: SPACING_SCALE.xl,
+			xxl: SPACING_SCALE.xxl,
 		};
 	});
 
 	const responsiveStyles = computed(() => {
-		let cardHeightVh;
-		if (windowWidth.value <= 480) {
-			cardHeightVh = Math.round(45 * heightScale.value);
-		} else if (windowWidth.value <= 768) {
-			cardHeightVh = Math.round(55 * heightScale.value);
-		} else {
-			cardHeightVh = Math.round(60 * heightScale.value);
-		}
-
-		cardHeightVh = Math.max(30, Math.min(cardHeightVh, 70));
+		const compactTablet = deviceProfile.value === "tablet_landscape_compact";
+		const paneGap = compactTablet ? 8 : 12;
+		const cardHeightVh =
+			windowWidth.value <= 768
+				? 52
+				: compactTablet
+					? 58
+					: 62;
 
 		return {
 			"--dynamic-xs": `${dynamicSpacing.value.xs}px`,
@@ -48,9 +101,14 @@ export function useResponsive() {
 			"--dynamic-md": `${dynamicSpacing.value.md}px`,
 			"--dynamic-lg": `${dynamicSpacing.value.lg}px`,
 			"--dynamic-xl": `${dynamicSpacing.value.xl}px`,
-			"--container-height": `${Math.round(68 * heightScale.value)}vh`,
+			"--dynamic-xxl": `${dynamicSpacing.value.xxl}px`,
+			"--container-height": "100%",
 			"--card-height": `${cardHeightVh}vh`,
 			"--font-scale": averageScale.value.toFixed(2),
+			"--pos-pane-gap": `${paneGap}px`,
+			"--pos-grid-left": compactTablet ? "40%" : "58%",
+			"--pos-grid-right": compactTablet ? "60%" : "42%",
+			"--pos-tap-target-min": "48px",
 		};
 	});
 
@@ -90,6 +148,11 @@ export function useResponsive() {
 		widthScale,
 		heightScale,
 		averageScale,
+		isLandscape,
+		deviceProfile,
+		catalogRenderMode,
+		cartRenderMode,
+		paymentLayoutMode,
 		dynamicSpacing,
 		responsiveStyles,
 	};

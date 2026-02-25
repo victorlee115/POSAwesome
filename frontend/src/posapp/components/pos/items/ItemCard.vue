@@ -34,31 +34,33 @@
 			</v-chip>
 		</div>
 		<div class="card-item-content">
-			<div class="card-item-header">
-				<h4 class="card-item-name">{{ item.item_name }}</h4>
-				<span class="card-item-code">{{ item.item_code }}</span>
-			</div>
-			<div v-if="isUnavailable && unavailableReason" class="card-item-unavailable-reason">
-				{{ unavailableReason }}
+			<div class="card-item-main">
+				<div class="card-item-header">
+					<h4 class="card-item-name">{{ item.item_name }}</h4>
+					<span class="card-item-code">{{ item.item_code }}</span>
+				</div>
+				<div v-if="isUnavailable && unavailableReason" class="card-item-unavailable-reason">
+					{{ unavailableReason }}
+				</div>
 			</div>
 			<div class="card-item-details">
-				<div class="card-item-price">
-					<div class="primary-price">
-						<span class="currency-symbol">
-							{{ currencySymbol(primaryCurrency) }}
-						</span>
-						<span class="price-amount">
-							{{ formatCurrency(primaryRate, primaryCurrency, primaryPrecision) }}
-						</span>
-					</div>
-					<div v-if="showSecondaryPrice" class="secondary-price">
-						<span class="currency-symbol">
-							{{ currencySymbol(secondaryCurrency) }}
-						</span>
-						<span class="price-amount">
-							{{ formatCurrency(item.rate, secondaryCurrency, primaryPrecision) }}
-						</span>
-					</div>
+					<div class="card-item-price">
+						<div class="primary-price">
+							<span class="currency-symbol">
+								{{ currencySymbol(primaryCurrency) }}
+							</span>
+							<span class="price-amount">
+								{{ primaryPriceDisplay }}
+							</span>
+						</div>
+						<div v-if="showSecondaryPrice" class="secondary-price">
+							<span class="currency-symbol">
+								{{ currencySymbol(secondaryCurrency) }}
+							</span>
+							<span class="price-amount">
+								{{ secondaryPriceDisplay }}
+							</span>
+						</div>
 					<div v-if="lastInvoiceRate" class="last-rate-chip">
 						<v-icon size="14" class="mr-1" color="secondary">mdi-history</v-icon>
 						<span class="last-rate-label">{{ __("Last") }}:</span>
@@ -143,6 +145,16 @@ const primaryPrecision = computed(() => {
 
 const secondaryCurrency = computed(() => props.selectedCurrency);
 
+const formatPriceOrZero = (value, currency, precision) => {
+	const formatted = props.formatCurrency(value, currency, precision);
+	const normalized = String(formatted ?? "").trim();
+	return normalized.length ? normalized : props.formatCurrency(0, currency, precision);
+};
+
+const primaryPriceDisplay = computed(() =>
+	formatPriceOrZero(primaryRate.value, primaryCurrency.value, primaryPrecision.value),
+);
+
 const showSecondaryPrice = computed(() => {
 	return (
 		props.context !== "purchase" &&
@@ -151,6 +163,10 @@ const showSecondaryPrice = computed(() => {
 		props.selectedCurrency !== primaryCurrency.value
 	);
 });
+
+const secondaryPriceDisplay = computed(() =>
+	formatPriceOrZero(props.item.rate ?? 0, secondaryCurrency.value, primaryPrecision.value),
+);
 
 const formattedActualQty = computed(() => {
 	const numericQty = Number(props.item.actual_qty ?? 0);
@@ -182,9 +198,9 @@ const onDragEnd = (event) => {
 
 <style scoped>
 .card-item-card {
-	background-color: rgb(var(--v-theme-surface));
-	border-radius: 12px;
-	border: 1px solid rgba(var(--v-border-color), var(--v-border-opacity));
+	background: var(--pos-white, #ffffff);
+	border-radius: 16px;
+	border: 1px solid #dbe4ef;
 	overflow: hidden;
 	transition:
 		transform 0.2s cubic-bezier(0.4, 0, 0.2, 1),
@@ -195,7 +211,7 @@ const onDragEnd = (event) => {
 	flex-direction: column;
 	height: 100%;
 	width: 100%;
-	box-shadow: 0 2px 8px rgba(var(--v-theme-on-surface), 0.06);
+	box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
 	will-change: transform;
 	backface-visibility: hidden;
 	transform: translate3d(0, 0, 0);
@@ -204,81 +220,91 @@ const onDragEnd = (event) => {
 
 .card-item-card:hover {
 	transform: translate3d(0, -2px, 0);
-	box-shadow: 0 8px 24px rgba(var(--v-theme-on-surface), 0.12);
-	border-color: rgb(var(--v-theme-primary));
+	box-shadow: 0 14px 28px rgba(15, 23, 42, 0.12);
+	border-color: #b6cae9;
 }
 
 .card-item-card.item-highlighted {
-	border-color: rgb(var(--v-theme-primary));
+	border-color: #0b63d1;
 	box-shadow:
-		0 0 0 3px rgba(var(--v-theme-primary), 0.35),
-		0 8px 20px rgba(var(--v-theme-primary), 0.2);
+		0 0 0 3px rgba(11, 99, 209, 0.22),
+		0 12px 24px rgba(11, 99, 209, 0.22);
 	transform: translate3d(0, -2px, 0);
-	background: rgba(var(--v-theme-primary), 0.08);
+	background: #f8fbff;
 }
 
 .card-item-card.item-unavailable {
-	opacity: 0.66;
-	filter: grayscale(0.16);
+	opacity: 0.58;
+	filter: grayscale(0.1);
 	cursor: not-allowed;
 }
 
 .card-item-card.item-unavailable:hover {
 	transform: none;
-	box-shadow: 0 2px 8px rgba(var(--v-theme-on-surface), 0.06);
-	border-color: rgba(var(--v-border-color), var(--v-border-opacity));
+	box-shadow: 0 8px 22px rgba(15, 23, 42, 0.08);
+	border-color: #dbe4ef;
 }
 
 .card-item-image-container {
 	position: relative;
-	height: 120px;
+	height: 96px;
 	flex-shrink: 0;
 	overflow: hidden;
-	background: rgb(var(--v-theme-surface-variant));
+	background: linear-gradient(180deg, #f8fbff 0%, #eef3fa 100%);
 }
 
 .unavailable-chip {
 	position: absolute;
-	top: 8px;
-	left: 8px;
+	top: 10px;
+	left: 10px;
 	z-index: 2;
+	font-weight: 700;
+	letter-spacing: 0.01em;
 }
 
 .card-item-image {
 	width: 100%;
 	height: 100%;
-	object-fit: contain; /* Changed to contain to ensure full image visibility */
-	background-color: rgb(var(--v-theme-surface-bright));
+	object-fit: cover;
+	background-color: #f6f8fb;
 }
 
-/* Image Placeholder Style */
 .image-placeholder {
 	display: flex;
 	align-items: center;
 	justify-content: center;
 	width: 100%;
 	height: 100%;
-	background-color: rgb(var(--v-theme-surface-variant));
+	background-color: #eef3fa;
 }
 
 .card-item-content {
-	padding: 12px;
+	padding: 8px 8px 10px;
+	display: grid;
+	grid-template-rows: minmax(0, 1fr) auto;
+	row-gap: 4px;
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.card-item-main {
+	min-height: 0;
+	overflow: hidden;
 	display: flex;
 	flex-direction: column;
-	flex-grow: 1;
-	justify-content: space-between;
+	justify-content: flex-start;
 }
 
 .card-item-header {
-	margin-bottom: 8px;
+	margin-bottom: 2px;
 }
 
 .card-item-name {
-	font-size: 0.95rem;
-	font-weight: 600;
-	margin: 0 0 4px 0;
-	line-height: 1.3;
-	color: var(--text-primary);
+	font-size: 0.88rem;
+	font-weight: 700;
+	margin: 0;
+	line-height: 1.18;
+	color: #0f172a;
 	overflow: hidden;
 	display: -webkit-box;
 	-webkit-line-clamp: 2;
@@ -287,8 +313,9 @@ const onDragEnd = (event) => {
 }
 
 .card-item-code {
-	font-size: 0.75rem;
-	color: var(--text-secondary);
+	font-size: 0.73rem;
+	font-weight: 600;
+	color: #6b7d97;
 	display: block;
 	white-space: nowrap;
 	overflow: hidden;
@@ -296,93 +323,121 @@ const onDragEnd = (event) => {
 }
 
 .card-item-unavailable-reason {
-	font-size: 0.74rem;
-	color: rgb(var(--v-theme-error));
-	margin-bottom: 6px;
+	font-size: 0.75rem;
+	color: #c24141;
+	margin-bottom: 0;
 	line-height: 1.2;
+	overflow: hidden;
+	display: -webkit-box;
+	-webkit-line-clamp: 2;
+	line-clamp: 2;
+	-webkit-box-orient: vertical;
 }
 
 .card-item-details {
 	display: flex;
 	justify-content: space-between;
 	align-items: flex-end;
-	margin-top: auto; /* Push to bottom */
+	gap: 4px;
+	min-height: 30px;
+	margin-top: auto;
 }
 
 .card-item-price {
 	display: flex;
 	flex-direction: column;
+	gap: 2px;
+	min-height: 28px;
+	justify-content: flex-end;
+	flex-shrink: 0;
 }
 
 .primary-price {
-	font-weight: 700;
-	color: rgb(var(--v-theme-primary));
-	font-size: 1rem;
+	font-size: 0.96rem;
+	font-weight: 800;
+	color: #0b63d1;
+	line-height: 1;
+	font-variant-numeric: tabular-nums;
+	white-space: nowrap;
+	display: inline-flex;
+	align-items: baseline;
+	gap: 2px;
 }
 
 .secondary-price {
-	font-size: 0.8rem;
-	color: var(--text-secondary);
+	font-size: 0.79rem;
+	color: #6b7d97;
+	font-variant-numeric: tabular-nums;
 }
 
 .last-rate-chip {
-	margin-top: 4px;
-	font-size: 0.75rem;
-	color: rgb(var(--v-theme-secondary));
-	background: rgba(var(--v-theme-on-surface), 0.08);
-	padding: 2px 6px;
-	border-radius: 4px;
+	margin-top: 3px;
+	font-size: 0.72rem;
+	color: #516579;
+	background: #f3f7fd;
+	padding: 3px 7px;
+	border-radius: 999px;
 	display: inline-flex;
 	align-items: center;
 	width: fit-content;
+	border: 1px solid #d8e5f7;
+	max-width: 100%;
 }
 
 .v-theme--dark .last-rate-chip {
-	color: rgba(var(--v-theme-on-surface), 0.75);
+	color: #d6e3f5;
 }
 
 .last-rate-value {
 	margin-left: 4px;
-	font-weight: 500;
-}
-
-.card-item-stock {
-	text-align: right;
-	font-size: 0.85rem;
-	color: var(--text-secondary);
-	display: flex;
-	flex-direction: column;
-	align-items: flex-end;
-}
-
-.stock-amount {
 	font-weight: 600;
 }
 
+.card-item-stock {
+	font-size: 0.72rem;
+	color: #64748b;
+	display: flex;
+	flex-direction: row;
+	align-items: center;
+	gap: 4px;
+	padding: 4px 7px;
+	border-radius: 999px;
+	background: #f7f9fc;
+	border: 1px solid #e2e8f0;
+	max-width: fit-content;
+	margin-left: auto;
+}
+
+.stock-amount {
+	font-weight: 700;
+	color: #334155;
+}
+
 .stock-amount.negative-number {
-	color: rgb(var(--v-theme-error));
+	color: #c24141;
 }
 
 .stock-uom {
-	font-size: 0.7rem;
+	font-size: 0.69rem;
 	text-transform: uppercase;
+	letter-spacing: 0.04em;
 }
 
 @media (max-width: 768px) {
 	.card-item-image-container {
-		height: 100px;
+		height: 92px;
 	}
 
 	.card-item-content {
-		padding: 10px 12px 12px;
+		padding: 8px 8px 7px;
 	}
 
 	.card-item-name {
-		font-size: 0.85rem;
+		font-size: 0.84rem;
 	}
 
 	.card-item-code {
-		font-size: 0.7rem;
+		font-size: 0.68rem;
 	}
 }
 </style>

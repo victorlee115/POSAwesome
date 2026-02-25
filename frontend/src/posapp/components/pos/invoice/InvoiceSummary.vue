@@ -1,11 +1,10 @@
 <template>
 	<v-card
-		class="cards mb-0 mt-3 py-2 px-3 rounded-lg resizable pos-themed-card"
-		style="resize: vertical; overflow: auto"
+		class="cards mb-0 py-2 px-3 rounded-lg pos-themed-card invoice-summary-card"
 	>
-		<v-row dense>
+		<v-row dense class="invoice-summary-layout">
 			<!-- Summary Info -->
-			<v-col cols="12" md="7">
+			<v-col cols="12">
 				<v-row dense>
 					<v-col
 						cols="12"
@@ -118,8 +117,9 @@
 			</v-col>
 
 			<!-- Action Buttons -->
-			<v-col cols="12" md="5">
+			<v-col cols="12">
 				<InvoiceActionButtons
+					class="invoice-actions-section"
 					:pos_profile="pos_profile"
 					:saveLoading="saveLoading"
 					:loadDraftsLoading="loadDraftsLoading"
@@ -357,14 +357,8 @@ async function handleOpenCustomerDisplay() {
 	transition: all 0.3s ease;
 }
 
-/* Enhanced field styling */
 .summary-field {
 	transition: all 0.2s ease;
-}
-
-.summary-field:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 @media (max-width: 768px) {

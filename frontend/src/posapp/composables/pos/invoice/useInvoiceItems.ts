@@ -84,7 +84,7 @@ export function useInvoiceItems(invoiceType: Ref<string>) {
 			title: __("Actions"),
 			key: "actions",
 			align: "center",
-			required: true,
+			required: false,
 			sortable: false,
 		},
 	]);
@@ -106,6 +106,7 @@ export function useInvoiceItems(invoiceType: Ref<string>) {
 				selected_columns.value = available_columns.value
 					.filter((col) => {
 						if (col.required) return true;
+						if (col.key === "actions") return true;
 						if (col.key === "price_list_rate") return true;
 						if (
 							col.key === "discount_value" &&

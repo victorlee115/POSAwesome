@@ -69,4 +69,57 @@ frappe.ui.form.on("POS Profile", {
 			},
 		});
 	},
+
+	refresh: function (frm) {
+		if (frm.is_new()) {
+			return;
+		}
+
+		frm.add_custom_button(
+			__("Setup Matcha Menu"),
+			() => {
+				frappe.confirm(
+					__(
+						"This will create/update matcha drink items, prices, and modifier profiles for this POS Profile. Continue?",
+					),
+					() => {
+						frappe.call({
+							method: "posawesome.posawesome.api.matcha_setup.setup_matcha_takeaway_menu",
+							args: {
+								pos_profile: frm.doc.name,
+							},
+							freeze: true,
+							freeze_message: __("Setting up matcha menu..."),
+							callback: function (r) {
+								if (r.exc || !r.message) {
+									return;
+								}
+								const message = r.message || {};
+								const createdCount = Array.isArray(message.created_items)
+									? message.created_items.length
+									: 0;
+								const updatedCount = Array.isArray(message.updated_items)
+									? message.updated_items.length
+									: 0;
+								frappe.msgprint({
+									title: __("Matcha Menu Ready"),
+									indicator: "green",
+									message: __(
+										"Created: {0}<br>Updated: {1}<br>Price List: {2}",
+										[
+											createdCount,
+											updatedCount,
+											message.price_list || __("Not set"),
+										],
+									),
+								});
+								frm.reload_doc();
+							},
+						});
+					},
+				);
+			},
+			__("POS Awesome"),
+		);
+	},
 });

@@ -12,6 +12,41 @@ export interface TableHeader {
 	[key: string]: any;
 }
 
+const COLUMN_WIDTH_CONFIG: Record<
+	string,
+	{ min: number; max: number; ratio: number; minVisibleWidth: number }
+> = {
+	item_name: { min: 170, max: 340, ratio: 0.34, minVisibleWidth: 0 },
+	qty: { min: 114, max: 154, ratio: 0.17, minVisibleWidth: 0 },
+	amount: { min: 98, max: 132, ratio: 0.14, minVisibleWidth: 0 },
+	rate: { min: 92, max: 124, ratio: 0.13, minVisibleWidth: 540 },
+	actions: { min: 68, max: 86, ratio: 0.08, minVisibleWidth: 760 },
+	uom: { min: 84, max: 106, ratio: 0.1, minVisibleWidth: 860 },
+	price_list_rate: { min: 100, max: 130, ratio: 0.12, minVisibleWidth: 980 },
+	discount_value: { min: 96, max: 116, ratio: 0.1, minVisibleWidth: 1080 },
+	discount_amount: { min: 98, max: 126, ratio: 0.11, minVisibleWidth: 1160 },
+	posa_is_offer: { min: 78, max: 96, ratio: 0.09, minVisibleWidth: 1240 },
+};
+
+const ALWAYS_VISIBLE_COLUMNS = new Set(["item_name", "qty", "amount"]);
+
+export const shouldShowColumnForWidth = (header: TableHeader, width: number) => {
+	if (ALWAYS_VISIBLE_COLUMNS.has(header.key)) {
+		return true;
+	}
+
+	const config = COLUMN_WIDTH_CONFIG[header.key];
+	if (config) {
+		return width >= config.minVisibleWidth;
+	}
+
+	// Keep unknown required columns visible; hide optional unknown columns on narrow layouts.
+	if (header.required) {
+		return true;
+	}
+	return width >= 980;
+};
+
 export function useItemsTableResponsive(
 	containerRef: Ref<HTMLElement | null>,
 	headers: Ref<TableHeader[]>,
@@ -30,43 +65,18 @@ export function useItemsTableResponsive(
 	};
 
 	const calculateColumnWidth = (header: TableHeader, width: number) => {
-		const baseWidths: Record<
-			string,
-			{ min: number; max: number; ratio: number }
-		> = {
-			item_name: { min: 200, max: 250, ratio: 0.3 },
-			qty: { min: 140, max: 160, ratio: 0.12 },
-			rate: { min: 100, max: 130, ratio: 0.12 },
-			amount: { min: 100, max: 130, ratio: 0.12 },
-			discount_value: { min: 90, max: 120, ratio: 0.1 },
-			discount_amount: { min: 90, max: 120, ratio: 0.11 },
-			price_list_rate: { min: 120, max: 140, ratio: 0.13 },
-			actions: { min: 80, max: 100, ratio: 0.08 },
-			posa_is_offer: { min: 70, max: 90, ratio: 0.06 },
-		};
-
-		const config = baseWidths[header.key] || {
+		const config = COLUMN_WIDTH_CONFIG[header.key] || {
 			min: 80,
 			max: 150,
 			ratio: 0.1,
+			minVisibleWidth: 0,
 		};
 		const calculatedWidth = width * config.ratio;
 		return Math.max(config.min, Math.min(config.max, calculatedWidth));
 	};
 
 	const calculateMinColumnWidth = (header: TableHeader) => {
-		const minWidths: Record<string, number> = {
-			item_name: 200,
-			qty: 140,
-			rate: 100,
-			amount: 100,
-			discount_value: 90,
-			discount_amount: 90,
-			price_list_rate: 120,
-			actions: 80,
-			posa_is_offer: 70,
-		};
-		return minWidths[header.key] || 80;
+		return COLUMN_WIDTH_CONFIG[header.key]?.min || 80;
 	};
 
 	const responsiveHeaders = computed(() => {
@@ -74,32 +84,7 @@ export function useItemsTableResponsive(
 		if (!headers.value || headers.value.length === 0) return [];
 
 		return headers.value
-			.filter((header) => {
-				if (
-					header.required ||
-					header.key === "item_name" ||
-					header.key === "qty" ||
-					header.key === "actions" ||
-					header.key === "amount"
-				) {
-					return true;
-				}
-
-				if (width < 450) {
-					return ["item_name", "qty", "amount", "actions"].includes(
-						header.key,
-					);
-				} else if (width < 650) {
-					return ![
-						"discount_value",
-						"discount_amount",
-						"price_list_rate",
-						"uom",
-						"posa_is_offer",
-					].includes(header.key);
-				}
-				return true;
-			})
+			.filter((header) => shouldShowColumnForWidth(header, width))
 			.map((header) => ({
 				...header,
 				width: calculateColumnWidth(header, width),
@@ -112,8 +97,9 @@ export function useItemsTableResponsive(
 	};
 
 	const containerStyles = computed(() => ({
-		height: "calc(100% - 80px)",
-		maxHeight: "calc(100% - 80px)",
+		height: "100%",
+		maxHeight: "100%",
+		minHeight: "0",
 		"--container-width": containerWidth.value + "px",
 		"--container-height": containerHeight.value + "px",
 	}));
@@ -137,8 +123,8 @@ export function useItemsTableResponsive(
 	}));
 
 	const tableDensity = computed(() => {
-		if (containerWidth.value < 500) return "compact";
-		if (containerWidth.value < 800) return "default";
+		if (containerWidth.value < 620) return "compact";
+		if (containerWidth.value < 980) return "default";
 		return "comfortable";
 	});
 

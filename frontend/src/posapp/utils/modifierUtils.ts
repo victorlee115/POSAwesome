@@ -23,6 +23,22 @@ export type ModifierProfilePayload = {
 	default_prep_status?: string;
 };
 
+const isOptionVisible = (
+	option: ModifierOption | undefined,
+	selections: Record<string, string[]>,
+): boolean => {
+	if (!option) {
+		return false;
+	}
+	const parentGroup = String(option.parent_option_group || "").trim();
+	const parentValue = String(option.parent_option_value || "").trim();
+	if (!parentGroup) {
+		return true;
+	}
+	const selectedParentValues = selections[parentGroup] || [];
+	return selectedParentValues.includes(parentValue);
+};
+
 export function normalizeModifierSelections(
 	input: unknown,
 ): Record<string, string[]> {
@@ -101,7 +117,7 @@ export function buildDefaultSelections(
 			return;
 		}
 		const firstOption = group.options[0];
-		if (firstOption) {
+		if (group.required && firstOption) {
 			defaults[group.name] = [String(firstOption.value)];
 		}
 	});
@@ -136,15 +152,18 @@ export function buildModifierSummary(
 	const labelParts: string[] = [];
 	const optionCodes: string[] = [];
 	let delta = 0;
+	const prunedSelections = pruneModifierSelections(profile, selections);
 
 	profile.groups.forEach((group) => {
-		const selectedValues = selections[group.name] || [];
+		const selectedValues = prunedSelections[group.name] || [];
 		if (!selectedValues.length) {
 			return;
 		}
 
 		selectedValues.forEach((value) => {
-			const option = (group.options || []).find((entry) => entry.value === value);
+			const option = (group.options || []).find(
+				(entry) => entry.value === value && isOptionVisible(entry, prunedSelections),
+			);
 			if (!option) {
 				labelParts.push(value);
 				return;
@@ -162,6 +181,55 @@ export function buildModifierSummary(
 		delta,
 		optionCodes,
 	};
+}
+
+export function pruneModifierSelections(
+	profile: ModifierProfilePayload | null | undefined,
+	selections: Record<string, string[]>,
+): Record<string, string[]> {
+	const normalized = normalizeModifierSelections(selections);
+	if (!profile || !Array.isArray(profile.groups) || !profile.groups.length) {
+		return normalized;
+	}
+
+	let current = { ...normalized };
+	const maxIterations = profile.groups.length + 2;
+
+	for (let i = 0; i < maxIterations; i += 1) {
+		let changed = false;
+		const next: Record<string, string[]> = {};
+
+		profile.groups.forEach((group) => {
+			const groupName = group?.name;
+			if (!groupName) {
+				return;
+			}
+			const selectedValues = current[groupName] || [];
+			if (!selectedValues.length) {
+				return;
+			}
+			const visibleValues = new Set(
+				(group.options || [])
+					.filter((option) => isOptionVisible(option, current))
+					.map((option) => option.value),
+			);
+
+			const cleanedValues = selectedValues.filter((value) => visibleValues.has(value));
+			if (cleanedValues.length) {
+				next[groupName] = cleanedValues;
+			}
+			if (cleanedValues.length !== selectedValues.length) {
+				changed = true;
+			}
+		});
+
+		current = next;
+		if (!changed) {
+			break;
+		}
+	}
+
+	return current;
 }
 
 export function buildDrinkCode(

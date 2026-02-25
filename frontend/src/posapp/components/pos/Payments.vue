@@ -1,10 +1,7 @@
 <!-- eslint-disable vue/multi-word-component-names -->
 <template>
-	<div class="pa-0">
-		<v-card
-			class="selection mx-auto pa-1 my-0 mt-3 pos-themed-card"
-			style="max-height: 68vh; height: 68vh"
-		>
+	<div class="pa-0 payments-screen">
+		<v-card class="selection mx-auto pa-2 my-0 mt-3 pos-themed-card payments-shell">
 			<v-progress-linear
 				:active="loading"
 				:indeterminate="loading"
@@ -12,189 +9,248 @@
 				location="top"
 				color="info"
 			></v-progress-linear>
-			<div ref="paymentContainer" class="overflow-y-auto pa-2" style="max-height: 67vh">
-				<!-- Payment Summary (Paid, To Be Paid, Change) -->
-				<PaymentSummary
-					:invoice_doc="invoice_doc"
-					:total_payments_display="total_payments_display"
-					:diff_payment_display="diff_payment_display"
-					:diff_label="diff_label"
-					:change_due="change_due"
-					:paid_change="paid_change"
-					:credit_change="credit_change"
-					:paid_change_rules="paid_change_rules"
-					:currencySymbol="currencySymbol"
-					:formatCurrency="formatCurrency"
-					@show-paid-amount="showPaidAmount"
-					@show-diff-payment="showDiffPayment"
-					@show-paid-change="showPaidChange"
-					@update-credit-change="handleCreditChangeUpdate"
-				/>
+			<div class="payments-layout">
+				<div class="payments-header-sticky">
+					<PaymentSummary
+						:invoice_doc="invoice_doc"
+						:total_payments_display="total_payments_display"
+						:diff_payment_display="diff_payment_display"
+						:diff_label="diff_label"
+						:change_due="change_due"
+						:paid_change="paid_change"
+						:credit_change="credit_change"
+						:paid_change_rules="paid_change_rules"
+						:currencySymbol="currencySymbol"
+						:formatCurrency="formatCurrency"
+						@show-paid-amount="showPaidAmount"
+						@show-diff-payment="showDiffPayment"
+						@show-paid-change="showPaidChange"
+						@update-credit-change="handleCreditChangeUpdate"
+					/>
+				</div>
 
-				<v-divider></v-divider>
+				<div ref="paymentContainer" class="payments-body-scroll">
+					<v-alert
+						v-if="paymentInlineError"
+						type="error"
+						variant="tonal"
+						density="comfortable"
+						class="mb-2 payment-inline-error"
+						icon="mdi-alert-circle-outline"
+					>
+						{{ paymentInlineError }}
+					</v-alert>
 
-				<!-- Payment Inputs (All Payment Methods) -->
-				<PaymentMethods
-					v-if="is_cashback && invoice_doc"
-					:payments="invoice_doc.payments"
-					:currency="invoice_doc.currency"
-					:isReturn="invoice_doc.is_return"
-					:requestPaymentField="request_payment_field"
-					:currencySymbol="currencySymbol"
-					:formatCurrency="formatCurrency"
-					:isNumber="isNumber"
-					:getVisibleDenominations="getVisibleDenominations"
-					:isCashLikePayment="isCashLikePayment"
-					:isMpesaC2bPayment="is_mpesa_c2b_payment"
-					@update-amount="handlePaymentAmountChange"
-					@set-full-amount="set_full_amount"
-					@set-denomination="setPaymentToDenomination"
-					@mpesa-dialog="mpesa_c2b_dialog"
-					@request-payment="request_payment"
-					@set-rest-amount="set_rest_amount"
-				/>
+					<section v-if="showCupNameInput" class="cup-name-prompt-zone">
+						<div class="payments-section-heading">{{ __("Cup Label") }}</div>
+						<v-text-field
+							v-model="cup_label_customer_name"
+							:label="__('Cup Label Name')"
+							:counter="24"
+							variant="outlined"
+							density="comfortable"
+							hide-details="auto"
+							data-test="cup-label-name"
+						/>
+					</section>
 
-				<!-- Loyalty Points Redemption -->
-				<!-- Redemption Section (Loyalty Points, Customer Credit) -->
-				<PaymentRedemption
-					:invoice-doc="invoice_doc"
-					:customer-info="customer_info"
-					:pos-profile="pos_profile"
-					:available-points-amount="available_points_amount"
-					:loyalty-amount="loyalty_amount"
-					:available-customer-credit="available_customer_credit"
-					:redeem-customer-credit="redeem_customer_credit"
-					:redeemed-customer-credit="redeemed_customer_credit"
-					:format-currency="formatCurrency"
-					:format-float="formatFloat"
-					:currency-symbol="currencySymbol"
-					@set-formatted-currency="
-						(data) => setFormatedCurrency(null, data.field, null, false, data.value)
-					"
-				/>
+					<section class="payments-quick-pay-zone">
+						<div class="payments-section-heading">{{ __("Tender Methods") }}</div>
+						<PaymentMethods
+							v-if="is_cashback && invoice_doc"
+							:payments="invoice_doc.payments"
+							:currency="invoice_doc.currency"
+							:isReturn="invoice_doc.is_return"
+							:requestPaymentField="request_payment_field"
+							:currencySymbol="currencySymbol"
+							:formatCurrency="formatCurrency"
+							:isNumber="isNumber"
+							:getVisibleDenominations="getVisibleDenominations"
+							:isCashLikePayment="isCashLikePayment"
+							:isMpesaC2bPayment="is_mpesa_c2b_payment"
+							@update-amount="handlePaymentAmountChange"
+							@set-full-amount="handleSetFullAmount"
+							@set-denomination="setPaymentToDenomination"
+							@mpesa-dialog="mpesa_c2b_dialog"
+							@request-payment="request_payment"
+							@set-rest-amount="handleSetRestAmount"
+							@focus-invalid-payment="clearPaymentInlineError"
+							@quick-fill-method="handleQuickFillMethod"
+						/>
+					</section>
 
-				<v-divider></v-divider>
+					<v-expansion-panels
+						v-model="advancedPanels"
+						multiple
+						variant="accordion"
+						class="payments-advanced-panels mt-3"
+					>
+						<v-expansion-panel :value="ADVANCED_PANEL.REDEMPTION">
+							<v-expansion-panel-title>
+								{{ __("Loyalty & Customer Credit") }}
+							</v-expansion-panel-title>
+							<v-expansion-panel-text class="payment-redemption-panel">
+								<PaymentRedemption
+									:invoice-doc="invoice_doc"
+									:customer-info="customer_info"
+									:pos-profile="pos_profile"
+									:available-points-amount="available_points_amount"
+									:loyalty-amount="loyalty_amount"
+									:available-customer-credit="available_customer_credit"
+									:redeem-customer-credit="redeem_customer_credit"
+									:redeemed-customer-credit="redeemed_customer_credit"
+									:format-currency="formatCurrency"
+									:format-float="formatFloat"
+									:currency-symbol="currencySymbol"
+									@set-formatted-currency="
+										(data) => setFormatedCurrency(null, data.field, null, false, data.value)
+									"
+								/>
+								<PaymentCustomerCreditDetails
+									:invoice-doc="invoice_doc"
+									:available-customer-credit="available_customer_credit"
+									:redeem-customer-credit="redeem_customer_credit"
+									:customer-credit-dict="customer_credit_dict"
+									:credit-source-label="creditSourceLabel"
+									:format-currency="formatCurrency"
+									:currency-symbol="currencySymbol"
+									@set-formatted-currency="
+										(data) => setFormatedCurrency(data.target, data.field, null, false, data.value)
+									"
+								/>
+							</v-expansion-panel-text>
+						</v-expansion-panel>
 
-				<!-- Invoice Totals (Net, Tax, Total, Discount, Grand, Rounded) -->
-				<InvoiceTotals
-					:invoice_doc="invoice_doc"
-					:displayCurrency="displayCurrency"
-					:diff_payment="diff_payment"
-					:diff_label="diff_label"
-					:currencySymbol="currencySymbol"
-					:formatCurrency="formatCurrency"
-				/>
+						<v-expansion-panel :value="ADVANCED_PANEL.TOTALS">
+							<v-expansion-panel-title>
+								{{ __("Invoice Totals Details") }}
+							</v-expansion-panel-title>
+							<v-expansion-panel-text>
+								<InvoiceTotals
+									:invoice_doc="invoice_doc"
+									:displayCurrency="displayCurrency"
+									:diff_payment="diff_payment"
+									:diff_label="diff_label"
+									:currencySymbol="currencySymbol"
+									:formatCurrency="formatCurrency"
+								/>
+							</v-expansion-panel-text>
+						</v-expansion-panel>
 
-				<!-- Additional Info Section (Delivery, Address, Notes, Authorization) -->
-				<PaymentAdditionalInfo
-					:invoice-doc="invoice_doc"
-					:pos-profile="pos_profile"
-					:invoice-type="invoiceType"
-					:return-validity-enabled="returnValidityEnabled"
-					:return-validity-min-date="returnValidityMinDate"
-					:addresses="addresses"
-					:new-delivery-date="new_delivery_date"
-					:return-valid-upto-date="return_valid_upto_date"
-					:address-filter="addressFilter"
-					@update:new-delivery-date="
-						(val) => {
-							new_delivery_date = val;
-							update_delivery_date();
-						}
-					"
-					@update:return-valid-upto-date="
-						(val) => {
-							return_valid_upto_date = val;
-							updateReturnValidUpto();
-						}
-					"
-					@new-address="new_address"
-				/>
+						<v-expansion-panel :value="ADVANCED_PANEL.OPTIONS">
+							<v-expansion-panel-title>
+								{{ __("Credit and Settlement Options") }}
+							</v-expansion-panel-title>
+							<v-expansion-panel-text class="payment-options-panel">
+								<PaymentOptions
+									:invoice-doc="invoice_doc"
+									:pos-profile="pos_profile"
+									:diff-payment="diff_payment"
+									:credit-change="credit_change"
+									:is-write-off-change="is_write_off_change"
+									:is-credit-sale="is_credit_sale"
+									:is-cashback="is_cashback"
+									:is-credit-return="is_credit_return"
+									:new-credit-due-date="new_credit_due_date"
+									:credit-due-days="credit_due_days"
+									:credit-due-presets="credit_due_presets"
+									:redeem-customer-credit="redeem_customer_credit"
+									@update:is-write-off-change="is_write_off_change = $event"
+									@update:is-credit-sale="is_credit_sale = $event"
+									@update:is-cashback="is_cashback = $event"
+									@update:is-credit-return="is_credit_return = $event"
+									@update:new-credit-due-date="
+										(val) => {
+											new_credit_due_date = val;
+											update_credit_due_date();
+										}
+									"
+									@update:credit-due-days="credit_due_days = $event"
+									@apply-due-preset="applyDuePreset"
+									@update:redeem-customer-credit="redeem_customer_credit = $event"
+									@get-available-credit="get_available_credit"
+								/>
+							</v-expansion-panel-text>
+						</v-expansion-panel>
 
-				<!-- Purchase Order Section -->
-				<PaymentPurchaseOrder
-					:invoice-doc="invoice_doc"
-					:pos-profile="pos_profile"
-					:new-po-date="new_po_date"
-					@update:new-po-date="
-						(val) => {
-							new_po_date = val;
-							update_po_date();
-						}
-					"
-				/>
+						<v-expansion-panel :value="ADVANCED_PANEL.ADDITIONAL">
+							<v-expansion-panel-title>
+								{{ __("Additional Invoice Details") }}
+							</v-expansion-panel-title>
+							<v-expansion-panel-text class="payment-additional-panel">
+									<PaymentAdditionalInfo
+									:invoice-doc="invoice_doc"
+									:pos-profile="pos_profile"
+									:invoice-type="invoiceType"
+									:return-validity-enabled="returnValidityEnabled"
+									:return-validity-min-date="returnValidityMinDate"
+									:addresses="addresses"
+									:new-delivery-date="new_delivery_date"
+									:return-valid-upto-date="return_valid_upto_date"
+									:address-filter="addressFilter"
+									@update:new-delivery-date="
+										(val) => {
+											new_delivery_date = val;
+											update_delivery_date();
+										}
+									"
+									@update:return-valid-upto-date="
+										(val) => {
+											return_valid_upto_date = val;
+											updateReturnValidUpto();
+										}
+									"
+									@new-address="new_address"
+									/>
+									<PaymentPurchaseOrder
+										:invoice-doc="invoice_doc"
+									:pos-profile="pos_profile"
+									:new-po-date="new_po_date"
+									@update:new-po-date="
+										(val) => {
+											new_po_date = val;
+											update_po_date();
+										}
+									"
+								/>
+							</v-expansion-panel-text>
+						</v-expansion-panel>
 
-				<v-divider></v-divider>
+						<v-expansion-panel :value="ADVANCED_PANEL.PRINT">
+							<v-expansion-panel-title>
+								{{ __("Print and Sales Assignment") }}
+							</v-expansion-panel-title>
+							<v-expansion-panel-text>
+								<PaymentSelectionFields
+									:sales-persons="sales_persons"
+									:sales-person="sales_person"
+									:readonly="readonly"
+									:print-formats="print_formats"
+									:print-format="print_format"
+									@update:sales-person="sales_person = $event"
+									@update:print-format="print_format = $event"
+								/>
+							</v-expansion-panel-text>
+						</v-expansion-panel>
+					</v-expansion-panels>
+				</div>
 
-				<!-- Payment Options Section (Switches: Write Off, Credit Sale, Cashback, etc.) -->
-				<PaymentOptions
-					:invoice-doc="invoice_doc"
-					:pos-profile="pos_profile"
-					:diff-payment="diff_payment"
-					:credit-change="credit_change"
-					:is-write-off-change="is_write_off_change"
-					:is-credit-sale="is_credit_sale"
-					:is-cashback="is_cashback"
-					:is-credit-return="is_credit_return"
-					:new-credit-due-date="new_credit_due_date"
-					:credit-due-days="credit_due_days"
-					:credit-due-presets="credit_due_presets"
-					:redeem-customer-credit="redeem_customer_credit"
-					@update:is-write-off-change="is_write_off_change = $event"
-					@update:is-credit-sale="is_credit_sale = $event"
-					@update:is-cashback="is_cashback = $event"
-					@update:is-credit-return="is_credit_return = $event"
-					@update:new-credit-due-date="
-						(val) => {
-							new_credit_due_date = val;
-							update_credit_due_date();
-						}
-					"
-					@update:credit-due-days="credit_due_days = $event"
-					@apply-due-preset="applyDuePreset"
-					@update:redeem-customer-credit="redeem_customer_credit = $event"
-					@get-available-credit="get_available_credit"
-				/>
-
-				<!-- Customer Credit Detailed Redemption List -->
-				<PaymentCustomerCreditDetails
-					:invoice-doc="invoice_doc"
-					:available-customer-credit="available_customer_credit"
-					:redeem-customer-credit="redeem_customer_credit"
-					:customer-credit-dict="customer_credit_dict"
-					:credit-source-label="creditSourceLabel"
-					:format-currency="formatCurrency"
-					:currency-symbol="currencySymbol"
-					@set-formatted-currency="
-						(data) => setFormatedCurrency(data.target, data.field, null, false, data.value)
-					"
-				/>
-
-				<v-divider></v-divider>
-
-				<!-- Selection Fields Section (Sales Person, Print Format) -->
-				<PaymentSelectionFields
-					:sales-persons="sales_persons"
-					:sales-person="sales_person"
-					:readonly="readonly"
-					:print-formats="print_formats"
-					:print-format="print_format"
-					@update:sales-person="sales_person = $event"
-					@update:print-format="print_format = $event"
-				/>
+				<div class="payments-footer-dock">
+					<PaymentActionButtons
+						ref="submitButton"
+						:loading="loading"
+						:validatePayment="validatePayment"
+						:is-valid="paymentFormValid"
+						:highlightSubmit="highlightSubmit"
+						:primary-label="primarySubmitLabel"
+						:secondary-label="secondarySubmitLabel"
+						@submit="submit"
+						@submit-and-print="submit(undefined, false, true)"
+						@cancel="back_to_invoice"
+					/>
+				</div>
 			</div>
 		</v-card>
-
-		<!-- Action Buttons -->
-		<PaymentActionButtons
-			ref="submitButton"
-			:loading="loading"
-			:validatePayment="validatePayment"
-			:highlightSubmit="highlightSubmit"
-			@submit="submit"
-			@submit-and-print="submit(undefined, false, true)"
-			@cancel="back_to_invoice"
-		/>
 		<!-- Dialogs Section (Custom Days, Phone Payment) -->
 		<PaymentDialogs
 			:custom-days-dialog="custom_days_dialog"
@@ -228,8 +284,10 @@ import { useRedemptionLogic } from "../../composables/pos/payments/useRedemption
 import { usePaymentPrinting } from "../../composables/pos/payments/usePaymentPrinting";
 import { usePaymentMethods } from "../../composables/pos/payments/usePaymentMethods";
 import { useInvoiceDetails } from "../../composables/pos/invoice/useInvoiceDetails";
+import { useResponsive } from "../../composables/core/useResponsive";
 import { useFormat } from "../../format";
 import { isOffline } from "../../../offline/index";
+import { buildCupLabelJobs, getCupPrinterConfig, printCupJobs } from "../../services/cupLabelService";
 
 // Components
 import PaymentSummary from "./payments/PaymentSummary.vue";
@@ -246,12 +304,14 @@ import PaymentDialogs from "./payments/PaymentDialogs.vue";
 
 const { proxy } = getCurrentInstance();
 const eventBus = proxy.eventBus;
+const __ = window.__;
 
 const invoiceStore = useInvoiceStore();
 const customersStore = useCustomersStore();
 const uiStore = useUIStore();
 const toastStore = useToastStore();
 const syncStore = useSyncStore();
+const { paymentLayoutMode } = useResponsive();
 
 // Destructure format utilities
 const {
@@ -296,6 +356,22 @@ const paymentContainer = ref(null);
 const submitButton = ref(null);
 const _shortcutHandlers = ref({});
 const readonly = ref(false); // Add missing readonly ref
+const paymentInlineError = ref("");
+const advancedPanels = ref([]);
+const cup_label_customer_name = ref("");
+const autoSyncQuickPay = ref(true);
+const autoSyncPaymentKey = ref("");
+const isAutoSyncingQuickPay = ref(false);
+
+const CUP_NAME_MAX = 24;
+
+const ADVANCED_PANEL = Object.freeze({
+	REDEMPTION: 0,
+	TOTALS: 1,
+	OPTIONS: 2,
+	ADDITIONAL: 3,
+	PRINT: 4,
+});
 
 // Computed Properties
 const invoice_doc = computed({
@@ -315,6 +391,276 @@ const validatePayment = computed(() => {
 	}
 	const doc = invoice_doc.value;
 	return !doc || !doc.posa_delivery_date;
+});
+
+const normalizeBoolean = (value) => {
+	if (value === true || value === 1 || value === "1") return true;
+	if (typeof value === "string") {
+		const normalized = value.trim().toLowerCase();
+		return normalized === "true" || normalized === "yes" || normalized === "on";
+	}
+	return false;
+};
+
+const normalizeBooleanWithDefault = (value, defaultValue = false) => {
+	if (value === undefined || value === null || value === "") {
+		return defaultValue;
+	}
+	return normalizeBoolean(value);
+};
+
+const sanitizeCupName = (value) =>
+	String(value || "")
+		.replace(/[^\x20-\x7E]/g, " ")
+		.replace(/\s+/g, " ")
+		.trim()
+		.slice(0, CUP_NAME_MAX);
+
+const normalizeCustomerValue = (value) => String(value || "").trim().toLowerCase();
+
+const isWalkInToken = (value) =>
+	/\b(walk[\s-]?in|cash|guest)\b/.test(normalizeCustomerValue(value));
+
+const isPrepItem = (item) => {
+	if (!item) return false;
+	if (normalizeBoolean(item.posa_is_prep_item)) return true;
+	const prepStatus = String(item.posa_prep_status || "").trim().toLowerCase();
+	if (["paid", "in prep", "ready", "collected"].includes(prepStatus)) return true;
+	return Boolean(
+		item.posa_drink_code ||
+			item.posa_modifiers_json ||
+			item.posa_modifier_summary ||
+			item.posa_modifier_signature ||
+			Number(item.posa_modifiers_delta || 0),
+	);
+};
+
+const resolveLiveCartItems = () => {
+	const cartItems = Array.isArray(invoiceStore.items) ? invoiceStore.items : [];
+	return cartItems.filter((item) => Boolean(item));
+};
+
+const hasCartItems = computed(() =>
+	resolveLiveCartItems().some(
+		(item) =>
+			!item?.posa_is_replace &&
+			Math.abs(flt(item?.qty || 0, currency_precision.value)) > 0,
+	),
+);
+
+const resolveCurrentItems = () => {
+	return resolveLiveCartItems();
+};
+
+const resolvePayableItems = () => {
+	return resolveLiveCartItems().filter(
+		(item) =>
+			!item?.posa_is_replace &&
+			Math.abs(flt(item?.qty || 0, currency_precision.value)) > 0,
+	);
+};
+
+const syncPaymentDocumentTotalsFromCart = () => {
+	const doc = invoice_doc.value;
+	if (!doc) {
+		return;
+	}
+
+	const precision = Math.max(currency_precision.value, 2);
+	const epsilon = 1 / Math.pow(10, precision + 1);
+	const liveCartItems = resolveCurrentItems();
+	const payableItems = resolvePayableItems();
+	const conversionRate = flt(doc.conversion_rate || 1, currency_precision.value) || 1;
+
+	let liveNetTotal = flt(
+		payableItems.reduce((sum, item) => {
+			return (
+				sum +
+				flt(item?.qty || 0, currency_precision.value) * flt(item?.rate || 0, currency_precision.value)
+			);
+		}, 0),
+		currency_precision.value,
+	);
+
+	const additionalDiscount = Math.abs(
+		flt(
+			invoiceStore.additionalDiscount ??
+				doc.additional_discount_amount ??
+				doc.discount_amount ??
+				0,
+			currency_precision.value,
+		),
+	);
+	const deliveryCharges = flt(
+		invoiceStore.deliveryChargesRate ?? doc.posa_delivery_charges_rate ?? 0,
+		currency_precision.value,
+	);
+	liveNetTotal = flt(liveNetTotal - additionalDiscount + deliveryCharges, currency_precision.value);
+
+	const previousNetTotal = flt(doc.total ?? doc.net_total ?? 0, currency_precision.value);
+	const previousTaxTotal = flt(doc.total_taxes_and_charges || 0, currency_precision.value);
+	let liveTaxTotal = previousTaxTotal;
+	if (Math.abs(liveNetTotal) <= epsilon) {
+		liveTaxTotal = 0;
+	} else if (Math.abs(previousTaxTotal) > epsilon) {
+		liveTaxTotal =
+			Math.abs(previousNetTotal) > epsilon
+				? flt((previousTaxTotal / previousNetTotal) * liveNetTotal, currency_precision.value)
+				: 0;
+	}
+
+	let liveGrandTotal = flt(liveNetTotal + liveTaxTotal, currency_precision.value);
+	const previousGrandTotal = flt(
+		doc.grand_total ?? previousNetTotal + previousTaxTotal,
+		currency_precision.value,
+	);
+	const previousRoundedTotal = flt(doc.rounded_total ?? previousGrandTotal, currency_precision.value);
+	let roundingDelta = flt(previousRoundedTotal - previousGrandTotal, currency_precision.value);
+	if (Math.abs(roundingDelta) <= epsilon) {
+		roundingDelta = 0;
+	}
+	let liveRoundedTotal = flt(liveGrandTotal + roundingDelta, currency_precision.value);
+
+	if (Math.abs(liveGrandTotal) <= epsilon) {
+		liveNetTotal = 0;
+		liveTaxTotal = 0;
+		liveGrandTotal = 0;
+		liveRoundedTotal = 0;
+	}
+
+	if (!doc.is_return && !is_credit_return.value) {
+		liveNetTotal = Math.max(liveNetTotal, 0);
+		liveTaxTotal = Math.max(liveTaxTotal, 0);
+		liveGrandTotal = Math.max(liveGrandTotal, 0);
+		liveRoundedTotal = Math.max(liveRoundedTotal, 0);
+	}
+
+	doc.items = liveCartItems.map((item) => ({ ...item }));
+	doc.total = liveNetTotal;
+	doc.net_total = liveNetTotal;
+	doc.grand_total = liveGrandTotal;
+	doc.rounded_total = liveRoundedTotal;
+	doc.total_taxes_and_charges = liveTaxTotal;
+	doc.base_total = flt(liveNetTotal * conversionRate, currency_precision.value);
+	doc.base_net_total = flt(liveNetTotal * conversionRate, currency_precision.value);
+	doc.base_grand_total = flt(liveGrandTotal * conversionRate, currency_precision.value);
+	doc.base_rounded_total = flt(liveRoundedTotal * conversionRate, currency_precision.value);
+
+	if (Array.isArray(doc.taxes)) {
+		if (Math.abs(liveTaxTotal) <= epsilon) {
+			doc.taxes = doc.taxes.map((tax) => ({
+				...tax,
+				tax_amount: 0,
+				base_tax_amount: 0,
+			}));
+		} else if (Math.abs(previousTaxTotal) > epsilon) {
+			const taxRatio = flt(liveTaxTotal / previousTaxTotal, currency_precision.value);
+			doc.taxes = doc.taxes.map((tax) => {
+				const sourceTax = flt(tax?.tax_amount || 0, currency_precision.value);
+				const scaledTax = flt(sourceTax * taxRatio, currency_precision.value);
+				return {
+					...tax,
+					tax_amount: scaledTax,
+					base_tax_amount: flt(scaledTax * conversionRate, currency_precision.value),
+				};
+			});
+		}
+	}
+};
+
+const hasPrepItems = computed(() => {
+	return resolveCurrentItems().some((item) => isPrepItem(item));
+});
+
+const cupLabelsEnabled = computed(() =>
+	normalizeBooleanWithDefault(pos_profile.value?.posa_enable_cup_labels, true),
+);
+
+const isWalkInOrder = computed(() => {
+	const invoiceCustomer = normalizeCustomerValue(
+		invoice_doc.value?.customer || customer_info.value?.customer,
+	);
+	const invoiceCustomerName = normalizeCustomerValue(
+		invoice_doc.value?.customer_name || customer_info.value?.customer_name,
+	);
+	const selectedCustomerName = normalizeCustomerValue(selectedCustomer.value);
+	const profileWalkInCustomer = normalizeCustomerValue(pos_profile.value?.customer);
+
+	if (
+		profileWalkInCustomer &&
+		(invoiceCustomer === profileWalkInCustomer ||
+			selectedCustomerName === profileWalkInCustomer)
+	) {
+		return true;
+	}
+
+	if (
+		isWalkInToken(invoiceCustomer) ||
+		isWalkInToken(invoiceCustomerName) ||
+		isWalkInToken(selectedCustomerName)
+	) {
+		return true;
+	}
+
+	// If no explicit customer is attached, treat it as walk-in mode.
+	return !invoiceCustomer && !selectedCustomerName;
+});
+
+const shouldPromptCupName = computed(
+	() => cupLabelsEnabled.value && hasPrepItems.value && isWalkInOrder.value,
+);
+
+const cupNameRequired = computed(
+	() =>
+		shouldPromptCupName.value &&
+		normalizeBooleanWithDefault(pos_profile.value?.posa_require_cup_customer_name, true),
+);
+
+const showCupNameInput = computed(() => shouldPromptCupName.value);
+
+const hasAnySettlement = computed(() => {
+	const doc = invoice_doc.value;
+	if (!doc) {
+		return false;
+	}
+
+	if (doc.is_return || is_credit_sale.value) {
+		return true;
+	}
+
+	const invoiceTotal = flt(doc.rounded_total || doc.grand_total || 0, currency_precision.value);
+	if (invoiceTotal <= 0) {
+		return true;
+	}
+
+	const hasPaymentAmount = Array.isArray(doc.payments)
+		? doc.payments.some((payment) => Math.abs(flt(payment?.amount || 0, currency_precision.value)) > 0)
+		: false;
+	const hasRedemptionAmount =
+		Math.abs(flt(loyalty_amount.value || 0, currency_precision.value)) > 0 ||
+		Math.abs(flt(redeemed_customer_credit.value || 0, currency_precision.value)) > 0;
+
+	return hasPaymentAmount || hasRedemptionAmount;
+});
+
+const paymentFormValid = computed(() => {
+	return hasCartItems.value && !validatePayment.value && hasAnySettlement.value;
+});
+
+const primarySubmitLabel = computed(() => {
+	if (paymentLayoutMode.value === "desktop_fullpay") {
+		return __("Submit");
+	}
+
+	const dueAmount = Math.max(flt(diff_payment.value || 0, currency_precision.value), 0);
+	if (dueAmount > 0) {
+		return __("Charge {0}", [formatCurrency(dueAmount)]);
+	}
+	return __("Charge");
+});
+
+const secondarySubmitLabel = computed(() => {
+	return paymentLayoutMode.value === "desktop_fullpay" ? __("Submit & Print") : __("Charge & Print");
 });
 
 const request_payment_field = computed(() => {
@@ -403,21 +749,8 @@ const {
 		uiStore,
 	},
 	eventBus: eventBus,
-	onSubmit: (args, submitPrint) => {
-		submitInvoiceWrapper(null, {
-			onPrint: (doc) => {
-				if (submitPrint) {
-					if (isOffline()) {
-						printOfflineInvoice(doc);
-					} else {
-						loadPrintPage();
-					}
-				}
-			},
-			onSuccess: () => {
-				eventBus.emit("focus_item_search");
-			},
-		});
+	onSubmit: (_args, submitPrint) => {
+		submit(null, false, !!submitPrint);
 	},
 	setRedeemCustomerCredit: (val) => {
 		redeem_customer_credit.value = val;
@@ -547,12 +880,26 @@ const finishSubmissionNavigation = (clearInvoice = false) => {
 
 const handleShowPayment = () => {
 	paymentVisible.value = true;
+	paymentInlineError.value = "";
+	autoSyncQuickPay.value = true;
+	autoSyncPaymentKey.value = "";
+	advancedPanels.value = [];
+	if (showCupNameInput.value) {
+		advancedPanels.value = [ADVANCED_PANEL.ADDITIONAL];
+	}
 	nextTick(() => {
+		if (showCupNameInput.value && !sanitizeCupName(cup_label_customer_name.value)) {
+			focusElementInPaymentPane("[data-test='cup-label-name'] input");
+		}
 		setTimeout(() => {
 			const btn = submitButton.value;
+			if (btn?.focusPrimaryButton) {
+				btn.focusPrimaryButton();
+				highlightSubmit.value = true;
+				return;
+			}
 			const el = btn && btn.$el ? btn.$el : btn;
-			if (el) {
-				el.scrollIntoView({ behavior: "smooth", block: "center" });
+			if (el && typeof el.focus === "function") {
 				el.focus();
 				highlightSubmit.value = true;
 			}
@@ -585,6 +932,9 @@ const updateCreditChange = (rawValue) => {
 };
 
 const handlePaymentAmountChange = (payment, event) => {
+	clearPaymentInlineError();
+	autoSyncQuickPay.value = false;
+	autoSyncPaymentKey.value = "";
 	last_payment_change_was_cash.value = isCashLikePayment(payment);
 	setFormatedCurrency(payment, "amount", null, false, event);
 
@@ -594,6 +944,9 @@ const handlePaymentAmountChange = (payment, event) => {
 };
 
 const setPaymentToDenomination = (payment, amount) => {
+	clearPaymentInlineError();
+	autoSyncQuickPay.value = false;
+	autoSyncPaymentKey.value = "";
 	payment.amount = amount;
 	if (payment.base_amount !== undefined) {
 		const conversion_rate = invoice_doc.value.conversion_rate || 1;
@@ -603,6 +956,231 @@ const setPaymentToDenomination = (payment, amount) => {
 	nextTick(() => {
 		autoBalancePayments(payment);
 	});
+};
+
+const handleSetFullAmount = (payment) => {
+	clearPaymentInlineError();
+	autoSyncQuickPay.value = true;
+	autoSyncPaymentKey.value = resolvePaymentKey(payment);
+	set_full_amount(payment);
+};
+
+const handleSetRestAmount = (payment) => {
+	clearPaymentInlineError();
+	autoSyncQuickPay.value = false;
+	autoSyncPaymentKey.value = "";
+	set_rest_amount(payment);
+};
+
+const handleQuickFillMethod = ({ payment, mode }) => {
+	clearPaymentInlineError();
+	if (mode === "full") {
+		autoSyncQuickPay.value = true;
+		autoSyncPaymentKey.value = resolvePaymentKey(payment);
+		return;
+	}
+	autoSyncQuickPay.value = false;
+	autoSyncPaymentKey.value = "";
+};
+
+const clearPaymentInlineError = () => {
+	paymentInlineError.value = "";
+};
+
+const ensureAdvancedPanelExpanded = (panelValue) => {
+	if (!advancedPanels.value.includes(panelValue)) {
+		advancedPanels.value = [...advancedPanels.value, panelValue];
+	}
+};
+
+const focusElementInPaymentPane = (selector, panelValue = null) => {
+	if (panelValue !== null) {
+		ensureAdvancedPanelExpanded(panelValue);
+	}
+	nextTick(() => {
+		const target = paymentContainer.value?.querySelector(selector);
+		if (!target) {
+			return;
+		}
+		if (typeof target.focus === "function") {
+			target.focus();
+		}
+		if (typeof target.scrollIntoView === "function") {
+			target.scrollIntoView({ behavior: "smooth", block: "center" });
+		}
+	});
+};
+
+const routePaymentValidationError = (message) => {
+	const normalized = String(message || "").toLowerCase();
+	paymentInlineError.value = message || __("Please review payment details.");
+
+	if (
+		normalized.includes("enter payment amount") ||
+		normalized.includes("amount paid is not complete") ||
+		normalized.includes("cash payment cannot be less")
+	) {
+		focusElementInPaymentPane(".payment-method-field input");
+		return;
+	}
+
+	if (
+		normalized.includes("credit") ||
+		normalized.includes("loyalty") ||
+		normalized.includes("redeem")
+	) {
+		focusElementInPaymentPane(".payment-redemption-panel input", ADVANCED_PANEL.REDEMPTION);
+		return;
+	}
+
+	if (
+		normalized.includes("write off") ||
+		normalized.includes("change calculation") ||
+		normalized.includes("partial payment")
+	) {
+		focusElementInPaymentPane(".payment-options-panel input", ADVANCED_PANEL.OPTIONS);
+		return;
+	}
+
+	if (normalized.includes("delivery") || normalized.includes("due date")) {
+		focusElementInPaymentPane(".payment-additional-panel input", ADVANCED_PANEL.ADDITIONAL);
+		return;
+	}
+
+	if (normalized.includes("cup label name")) {
+		focusElementInPaymentPane("[data-test='cup-label-name'] input");
+		return;
+	}
+
+	focusElementInPaymentPane(".payment-method-field input");
+};
+
+const validateCupName = () => {
+	if (!showCupNameInput.value) {
+		return true;
+	}
+
+	const sanitized = sanitizeCupName(cup_label_customer_name.value);
+	cup_label_customer_name.value = sanitized;
+	if (invoice_doc.value) {
+		invoice_doc.value.posa_cup_customer_name = sanitized;
+	}
+
+	if (cupNameRequired.value && !sanitized) {
+		throw new Error(__("Cup Label Name is required for prep items"));
+	}
+	return true;
+};
+
+const attemptCupLabelPrint = async () => {
+	if (!invoice_doc.value || !hasPrepItems.value) {
+		return;
+	}
+
+	const prepItems = resolveCurrentItems();
+	if (prepItems.length) {
+		const existingItems = Array.isArray(invoice_doc.value.items) ? invoice_doc.value.items : [];
+		const docHasPrepItems = existingItems.some((item) => isPrepItem(item));
+		if (!docHasPrepItems) {
+			invoice_doc.value.items = prepItems.map((item) => ({ ...item }));
+		}
+	}
+
+	prefillCupNameIfNeeded();
+	const effectiveCupName = sanitizeCupName(
+		cup_label_customer_name.value ||
+			invoice_doc.value.posa_cup_customer_name ||
+			customer_info.value?.customer_name ||
+			invoice_doc.value?.customer_name ||
+			"",
+	);
+	cup_label_customer_name.value = effectiveCupName;
+	invoice_doc.value.posa_cup_customer_name = effectiveCupName;
+
+	try {
+		// Build jobs first so order token and label identity are persisted on the invoice doc.
+		const jobs = buildCupLabelJobs(invoice_doc.value, pos_profile.value || {});
+		if (!jobs.length) {
+			return;
+		}
+
+		const printer = getCupPrinterConfig(pos_profile.value || {});
+		if (!printer.enabled) {
+			return;
+		}
+
+		const result = printCupJobs(jobs, printer);
+		if (!result.ok) {
+			const reason = result.failures[0]?.reason || __("Failed to send cup labels");
+			toastStore.show({
+				title: __("Cup label print warning"),
+				detail: reason,
+				color: "warning",
+			});
+		}
+	} catch (error) {
+		toastStore.show({
+			title: __("Cup label print warning"),
+			detail: error?.message || __("Failed to send cup labels"),
+			color: "warning",
+		});
+	}
+};
+
+const prefillCupNameIfNeeded = () => {
+	if (!hasPrepItems.value || !invoice_doc.value) {
+		return;
+	}
+
+	const existing = sanitizeCupName(
+		cup_label_customer_name.value || invoice_doc.value.posa_cup_customer_name,
+	);
+
+	if (isWalkInOrder.value) {
+		const normalizedExisting = normalizeCustomerValue(existing);
+		const walkInReferenceNames = new Set(
+			[
+				invoice_doc.value?.customer,
+				invoice_doc.value?.customer_name,
+				customer_info.value?.customer,
+				customer_info.value?.customer_name,
+				selectedCustomer.value,
+				pos_profile.value?.customer,
+			]
+				.map((value) => normalizeCustomerValue(value))
+				.filter(Boolean),
+		);
+		const isGenericWalkInName =
+			!normalizedExisting ||
+			isWalkInToken(normalizedExisting) ||
+			walkInReferenceNames.has(normalizedExisting);
+		if (!isGenericWalkInName) {
+			cup_label_customer_name.value = existing;
+			invoice_doc.value.posa_cup_customer_name = existing;
+			return;
+		}
+		cup_label_customer_name.value = "";
+		invoice_doc.value.posa_cup_customer_name = "";
+		return;
+	}
+
+	if (existing) {
+		cup_label_customer_name.value = existing;
+		invoice_doc.value.posa_cup_customer_name = existing;
+		return;
+	}
+
+	const fallbackSource =
+		customer_info.value?.customer_name ||
+		invoice_doc.value?.customer_name ||
+		invoice_doc.value?.customer ||
+		"";
+	const fallback = sanitizeCupName(fallbackSource);
+	if (!fallback) {
+		return;
+	}
+	cup_label_customer_name.value = fallback;
+	invoice_doc.value.posa_cup_customer_name = fallback;
 };
 
 // UI Feedback Methods
@@ -635,6 +1213,139 @@ const showPaidChange = () => {
 		title: `Paid Change: ${formatCurrency(paid_change.value)}`,
 		color: "info",
 	});
+};
+
+const resolvePaymentKey = (payment) => {
+	return String(
+		payment?.name ||
+			payment?.mode_of_payment ||
+			payment?.account ||
+			"",
+	);
+};
+
+const resolveAutoSyncPayment = (payments) => {
+	if (!Array.isArray(payments) || !payments.length) {
+		return null;
+	}
+
+	if (autoSyncPaymentKey.value) {
+		const target = payments.find((payment) => resolvePaymentKey(payment) === autoSyncPaymentKey.value);
+		if (target) {
+			return target;
+		}
+	}
+
+	return payments.find((payment) => payment?.default === 1) || payments[0];
+};
+
+const syncQuickPayAmountsToInvoiceTotal = () => {
+	if (isAutoSyncingQuickPay.value || !autoSyncQuickPay.value) {
+		return;
+	}
+
+	const doc = invoice_doc.value;
+	const payments = Array.isArray(doc?.payments) ? doc.payments : [];
+	if (!doc || !payments.length || doc.is_return || is_credit_sale.value || is_credit_return.value) {
+		return;
+	}
+
+	const precision = Math.max(currency_precision.value, 2);
+	const epsilon = 1 / Math.pow(10, precision + 1);
+	const invoiceTotal = Math.max(
+		flt(doc.rounded_total || doc.grand_total || 0, currency_precision.value),
+		0,
+	);
+
+	if (invoiceTotal <= epsilon || !hasCartItems.value) {
+		const hasPositiveSettlement = payments.some((payment) => {
+			const amount = Math.abs(flt(payment?.amount || 0, currency_precision.value));
+			const baseAmount = Math.abs(flt(payment?.base_amount || 0, currency_precision.value));
+			return amount > epsilon || baseAmount > epsilon;
+		});
+		if (!hasPositiveSettlement) {
+			return;
+		}
+		isAutoSyncingQuickPay.value = true;
+		try {
+			payments.forEach((payment) => {
+				payment.amount = 0;
+				if (payment.base_amount !== undefined) {
+					payment.base_amount = 0;
+				}
+			});
+		} finally {
+			isAutoSyncingQuickPay.value = false;
+		}
+		autoSyncPaymentKey.value = "";
+		return;
+	}
+
+	const targetPayment = resolveAutoSyncPayment(payments);
+	if (!targetPayment) {
+		return;
+	}
+
+	autoSyncPaymentKey.value = resolvePaymentKey(targetPayment);
+
+	const conversionRate = flt(doc.conversion_rate || 1, currency_precision.value) || 1;
+	const loyaltySettled = Math.max(flt(loyalty_amount.value || 0, currency_precision.value), 0);
+	const creditSettled = Math.max(
+		flt(redeemed_customer_credit.value || 0, currency_precision.value),
+		0,
+	);
+
+	const otherPaymentsTotal = payments.reduce((sum, payment) => {
+		if (payment === targetPayment) {
+			return sum;
+		}
+		return sum + Math.max(flt(payment?.amount || 0, currency_precision.value), 0);
+	}, 0);
+
+	const needsOtherReset = payments.some(
+		(payment) =>
+			payment !== targetPayment &&
+			Math.abs(flt(payment?.amount || 0, currency_precision.value)) > epsilon,
+	);
+
+	// When other payments will be zeroed (needsOtherReset), don't subtract their
+	// stale amounts from targetAmount — the target should cover the full remaining balance.
+	const effectiveOtherTotal = needsOtherReset ? 0 : otherPaymentsTotal;
+
+	let targetAmount = flt(
+		invoiceTotal - loyaltySettled - creditSettled - effectiveOtherTotal,
+		currency_precision.value,
+	);
+	if (targetAmount < 0) {
+		targetAmount = 0;
+	}
+
+	const currentAmount = flt(targetPayment.amount || 0, currency_precision.value);
+	const needsTargetUpdate = Math.abs(currentAmount - targetAmount) > epsilon;
+
+	if (!needsTargetUpdate && !needsOtherReset) {
+		return;
+	}
+
+	isAutoSyncingQuickPay.value = true;
+	try {
+		payments.forEach((payment) => {
+			if (payment === targetPayment) {
+				return;
+			}
+			payment.amount = 0;
+			if (payment.base_amount !== undefined) {
+				payment.base_amount = 0;
+			}
+		});
+
+		targetPayment.amount = targetAmount;
+		if (targetPayment.base_amount !== undefined) {
+			targetPayment.base_amount = flt(targetAmount * conversionRate, currency_precision.value);
+		}
+	} finally {
+		isAutoSyncingQuickPay.value = false;
+	}
 };
 
 // Background Check
@@ -691,11 +1402,18 @@ const scheduleBackgroundStatusCheck = (invoiceName, doctype) => {
 const submit = async (_event, payment_received = false, print = false) => {
 	loading.value = true;
 	try {
+		clearPaymentInlineError();
+		if (!hasCartItems.value) {
+			throw new Error(__("Cart is empty. Add at least one item before charging."));
+		}
 		await validateSubmission(payment_received);
+		validateCupName();
+		await attemptCupLabelPrint();
 		await submitInvoiceWrapper(print);
 	} catch (error) {
 		console.error("Submission error:", error);
 		if (error.message) {
+			routePaymentValidationError(error.message);
 			toastStore.show({
 				title: error.message,
 				color: "error",
@@ -720,14 +1438,16 @@ const submitInvoiceWrapper = async (print) => {
 					}
 				}
 			},
-			onSuccess: () => {
-				customer_credit_dict.value = [];
-				redeem_customer_credit.value = false;
-				is_cashback.value = true;
-				show_change_dialog.value = true;
-				is_credit_return.value = false;
-				sales_person.value = "";
-			},
+				onSuccess: () => {
+					clearPaymentInlineError();
+					customer_credit_dict.value = [];
+					redeem_customer_credit.value = false;
+					is_cashback.value = true;
+					show_change_dialog.value = true;
+					is_credit_return.value = false;
+					sales_person.value = "";
+					cup_label_customer_name.value = "";
+				},
 			onFinishNavigation: (clearInvoice) => {
 				finishSubmissionNavigation(clearInvoice);
 			},
@@ -768,6 +1488,35 @@ const handleSubmitPaymentShortcut = ({ print = false } = {}) => {
 	nextTick(() => {
 		submit(null, false, print);
 	});
+};
+
+const resetPaymentStateAfterCartEmpty = () => {
+	if (Array.isArray(invoice_doc.value?.payments)) {
+		invoice_doc.value.payments.forEach((payment) => {
+			payment.amount = 0;
+			if (payment.base_amount !== undefined) {
+				payment.base_amount = 0;
+			}
+		});
+	}
+	paid_change.value = 0;
+	credit_change.value = 0;
+	loyalty_amount.value = 0;
+	redeemed_customer_credit.value = 0;
+	redeem_customer_credit.value = false;
+	customer_credit_dict.value = [];
+	is_credit_sale.value = false;
+	is_write_off_change.value = false;
+	is_cashback.value = true;
+	is_credit_return.value = false;
+	autoSyncQuickPay.value = true;
+	autoSyncPaymentKey.value = "";
+	cup_label_customer_name.value = "";
+	if (invoice_doc.value) {
+		invoice_doc.value.paid_change = 0;
+		invoice_doc.value.credit_change = 0;
+		invoice_doc.value.posa_cup_customer_name = "";
+	}
 };
 
 // Watchers
@@ -940,8 +1689,92 @@ watch(activeView, (newVal) => {
 	} else {
 		paymentVisible.value = false;
 		highlightSubmit.value = false;
+		clearPaymentInlineError();
 	}
 });
+
+watch(
+	() => [invoice_doc.value?.grand_total, invoice_doc.value?.rounded_total, invoice_doc.value?.payments],
+	() => {
+		if (paymentInlineError.value) {
+			clearPaymentInlineError();
+		}
+		const doc = invoice_doc.value;
+		if (!doc || doc.is_return || is_credit_sale.value || is_credit_return.value) {
+			return;
+		}
+
+		const precision = Math.max(currency_precision.value, 2);
+		const epsilon = 1 / Math.pow(10, precision + 1);
+		const invoiceTotal = Math.max(
+			flt(doc.rounded_total || doc.grand_total || 0, currency_precision.value),
+			0,
+		);
+		const payments = Array.isArray(doc.payments) ? doc.payments : [];
+		const hasSettlement = payments.some(
+			(payment) => Math.abs(flt(payment?.amount || 0, currency_precision.value)) > epsilon,
+		);
+
+		if (invoiceTotal <= epsilon && hasSettlement) {
+			resetPaymentStateAfterCartEmpty();
+		}
+	},
+	{ deep: true },
+);
+
+watch(
+	() => [
+		paymentVisible.value,
+		hasCartItems.value,
+		autoSyncQuickPay.value,
+		invoice_doc.value?.grand_total,
+		invoice_doc.value?.rounded_total,
+		invoice_doc.value?.conversion_rate,
+		Array.isArray(invoice_doc.value?.payments) ? invoice_doc.value.payments.length : 0,
+		loyalty_amount.value,
+		redeemed_customer_credit.value,
+	],
+	() => {
+		syncQuickPayAmountsToInvoiceTotal();
+	},
+);
+
+watch(
+	() => invoiceStore.metadata.changeVersion,
+	() => {
+		syncPaymentDocumentTotalsFromCart();
+		
+		// Always reset auto sync when the cart changes, to discard stale overrides.
+		autoSyncQuickPay.value = true;
+		if (!autoSyncPaymentKey.value) {
+			const payments = Array.isArray(invoice_doc.value?.payments) ? invoice_doc.value.payments : [];
+			const preferredPayment = resolveAutoSyncPayment(payments);
+			autoSyncPaymentKey.value = resolvePaymentKey(preferredPayment || payments[0]);
+		}
+		
+		syncQuickPayAmountsToInvoiceTotal();
+	},
+);
+
+watch(
+	() => hasCartItems.value,
+	(hasItems, hadItems) => {
+		if (hasItems || !hadItems) {
+			return;
+		}
+		resetPaymentStateAfterCartEmpty();
+		if (!paymentVisible.value) {
+			return;
+		}
+		const message = __("Cart is empty. Add items before charging.");
+		paymentInlineError.value = message;
+		toastStore.show({
+			title: message,
+			color: "warning",
+		});
+		uiStore.setActiveView("items");
+	},
+);
 
 watch(
 	() => invoice_doc.value.posa_delivery_date,
@@ -962,6 +1795,49 @@ watch(
 watch(customerInfo, (newInfo) => {
 	customer_info.value = newInfo || "";
 });
+
+watch(
+	() => invoice_doc.value?.posa_cup_customer_name,
+	(value) => {
+		const sanitized = sanitizeCupName(value);
+		if (sanitized !== cup_label_customer_name.value) {
+			cup_label_customer_name.value = sanitized;
+		}
+	},
+	{ immediate: true },
+);
+
+watch(cup_label_customer_name, (value) => {
+	const sanitized = sanitizeCupName(value);
+	if (sanitized !== value) {
+		cup_label_customer_name.value = sanitized;
+		return;
+	}
+	if (invoice_doc.value) {
+		invoice_doc.value.posa_cup_customer_name = sanitized;
+	}
+});
+
+watch(
+	() => [
+		hasPrepItems.value,
+		showCupNameInput.value,
+		isWalkInOrder.value,
+		selectedCustomer.value,
+		customer_info.value?.customer,
+		customer_info.value?.customer_name,
+		invoice_doc.value?.customer,
+		invoice_doc.value?.customer_name,
+		invoice_doc.value?.posa_cup_customer_name,
+	],
+	() => {
+		if (showCupNameInput.value) {
+			ensureAdvancedPanelExpanded(ADVANCED_PANEL.ADDITIONAL);
+		}
+		prefillCupNameIfNeeded();
+	},
+	{ immediate: true },
+);
 
 watch(selectedCustomer, (newCustomer, oldCustomer) => {
 	if (newCustomer === oldCustomer) return;
@@ -1015,6 +1891,9 @@ onMounted(() => {
 				default_payment.amount = flt(doc.rounded_total || doc.grand_total, currency_precision.value);
 				is_credit_return.value = false;
 			}
+			autoSyncQuickPay.value = true;
+			autoSyncPaymentKey.value = resolvePaymentKey(default_payment || doc.payments?.[0]);
+			syncQuickPayAmountsToInvoiceTotal();
 			initializeReturnValidity(doc);
 			loyalty_amount.value = 0;
 			redeemed_customer_credit.value = 0;
@@ -1066,13 +1945,14 @@ onMounted(() => {
 			set_mpesa_payment(data);
 		});
 		eventBus.on("submit_payment_shortcut", handleSubmitPaymentShortcut);
-		eventBus.on("clear_invoice", () => {
-			invoiceStore.setInvoiceDoc({}); // Clear doc
-			is_return.value = false;
-			is_credit_return.value = false;
-			return_valid_upto_date.value = null;
-		});
-	}
+			eventBus.on("clear_invoice", () => {
+				invoiceStore.setInvoiceDoc({}); // Clear doc
+				is_return.value = false;
+				is_credit_return.value = false;
+				return_valid_upto_date.value = null;
+				cup_label_customer_name.value = "";
+			});
+		}
 
 	if (activeView.value === "payment") {
 		handleShowPayment("true");
@@ -1099,7 +1979,88 @@ onBeforeUnmount(() => {
 </script>
 
 <style scoped>
-/* Remove readonly styling */
+.payments-screen {
+	height: 100%;
+	min-height: 0;
+}
+
+.payments-shell {
+	height: 100%;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
+	overflow: hidden;
+}
+
+.payments-layout {
+	height: 100%;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: auto minmax(0, 1fr) auto;
+	gap: 8px;
+	min-height: 0;
+}
+
+.payments-header-sticky {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	background: inherit;
+}
+
+.payments-body-scroll {
+	min-height: 0;
+	overflow-y: auto;
+	overflow-x: hidden;
+	padding-right: 2px;
+	padding-bottom: 2px;
+}
+
+.payments-quick-pay-zone {
+	display: grid;
+	gap: 8px;
+}
+
+.cup-name-prompt-zone {
+	display: grid;
+	gap: 6px;
+	margin-bottom: 8px;
+}
+
+.payments-section-heading {
+	font-size: 0.86rem;
+	font-weight: 800;
+	letter-spacing: 0.03em;
+	text-transform: uppercase;
+	color: #4f6885;
+}
+
+.payments-advanced-panels {
+	margin-bottom: 6px;
+}
+
+.payments-advanced-panels :deep(.v-expansion-panel-title) {
+	min-height: 50px !important;
+	font-weight: 700 !important;
+	color: #1a3553 !important;
+}
+
+.payments-advanced-panels :deep(.v-expansion-panel-text__wrapper) {
+	padding: 8px !important;
+}
+
+.payment-inline-error {
+	font-weight: 600;
+}
+
+.payments-footer-dock {
+	position: sticky;
+	bottom: 0;
+	background: inherit;
+	padding-top: 4px;
+	z-index: 3;
+}
+
 .v-text-field--readonly {
 	cursor: text;
 }
@@ -1108,60 +2069,9 @@ onBeforeUnmount(() => {
 	background-color: transparent;
 }
 
-.cards {
-	background-color: var(--surface-secondary) !important;
-}
-
-.submit-btn {
-	position: relative;
-}
-
-.submit-btn:hover,
-.submit-btn:focus,
-.submit-btn:focus-visible,
-.submit-btn:active {
-	background-color: rgb(var(--v-theme-primary)) !important;
-	color: rgb(var(--v-theme-on-primary)) !important;
-	box-shadow: none;
-}
-
-.submit-btn:focus-visible {
-	outline: 2px solid rgb(var(--v-theme-primary));
-	outline-offset: 2px;
-}
-
-.submit-btn::before,
-.submit-btn:hover::before,
-.submit-btn:focus::before,
-.submit-btn:focus-visible::before,
-.submit-btn:active::before {
-	opacity: 0 !important;
-}
-
-.submit-highlight {
-	box-shadow: 0 0 0 4px rgb(var(--v-theme-primary));
-	transition: box-shadow 0.3s ease-in-out;
-}
-
-.payment-method-btn:hover,
-.payment-method-btn:focus,
-.payment-method-btn:focus-visible,
-.payment-method-btn:active {
-	background-color: rgb(var(--v-theme-primary)) !important;
-	color: rgb(var(--v-theme-on-primary)) !important;
-	box-shadow: none;
-}
-
-.payment-method-btn::before,
-.payment-method-btn:hover::before,
-.payment-method-btn:focus::before,
-.payment-method-btn:focus-visible::before,
-.payment-method-btn:active::before {
-	opacity: 0 !important;
-}
-
-.pos-themed-card {
-	background-color: rgb(var(--v-theme-surface));
-	color: rgb(var(--v-theme-on-surface));
+@media (max-width: 920px) {
+	.payments-layout {
+		grid-template-rows: auto minmax(0, 1fr) auto;
+	}
 }
 </style>

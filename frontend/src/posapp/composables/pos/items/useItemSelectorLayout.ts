@@ -9,6 +9,7 @@ import {
 type SelectorLayoutOptions = {
 	resizeDebounce?: number;
 	loadVisibleItems?: () => void;
+	getDisplayedItemsCount?: () => number;
 };
 
 /**
@@ -19,41 +20,87 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	const {
 		resizeDebounce = 100,
 		loadVisibleItems, // Method to load more items on scroll (pagination)
+		getDisplayedItemsCount,
 	} = options;
 
 	// State
 	const windowWidth = ref(window.innerWidth);
+	const windowHeight = ref(window.innerHeight);
+	const containerWidth = ref(0);
 	const isOverflowing = ref(false);
 	const itemsContainerRef = ref<any>(null);
 	const scrollThrottle = ref<number | null>(null);
+	let resizeObserver: ResizeObserver | null = null;
 
 	// Computed Metrics
-	const cardColumns = computed(() => getCardColumns(windowWidth.value));
-	const cardGap = computed(() => getCardGap(windowWidth.value));
-	const cardPadding = computed(() => getCardPadding(windowWidth.value));
+	const effectiveWidth = computed(() =>
+		Math.max(0, containerWidth.value || Math.floor(windowWidth.value * 0.6)),
+	);
+	const displayedItemsCount = computed(() => {
+		if (typeof getDisplayedItemsCount !== "function") {
+			return 0;
+		}
+		const count = Number(getDisplayedItemsCount());
+		return Number.isFinite(count) ? Math.max(0, count) : 0;
+	});
+	const useSmallMenuGrid = computed(
+		() => displayedItemsCount.value > 0 && displayedItemsCount.value <= 12,
+	);
+	const cardColumns = computed(() => {
+		const baseColumns = getCardColumns(effectiveWidth.value);
+		if (useSmallMenuGrid.value && effectiveWidth.value >= 470) {
+			return Math.max(3, baseColumns);
+		}
+		return baseColumns;
+	});
+	const cardGap = computed(() => getCardGap(effectiveWidth.value));
+	const cardPadding = computed(() => getCardPadding(effectiveWidth.value));
+	const isShortViewport = computed(() => windowHeight.value <= 860);
+	const compactRowHeights = {
+		narrow: 216,
+		regular: 224,
+		wide: 232,
+	};
 
 	const cardRowHeight = computed(() => {
-		if (windowWidth.value <= 768) {
-			return 260;
+		if (useSmallMenuGrid.value) {
+			if (effectiveWidth.value <= 560) {
+				return compactRowHeights.narrow;
+			}
+			if (effectiveWidth.value <= 820) {
+				return compactRowHeights.regular;
+			}
+			return compactRowHeights.wide;
 		}
-		if (windowWidth.value <= 1200) {
-			return 280;
+
+		let baseHeight = 184;
+		if (effectiveWidth.value <= 420) {
+			baseHeight = 160;
+		} else if (effectiveWidth.value <= 620) {
+			baseHeight = 166;
+		} else if (effectiveWidth.value <= 980) {
+			baseHeight = 172;
 		}
-		return 300;
+
+		if (isShortViewport.value) {
+			baseHeight -= 12;
+		}
+
+		if (windowHeight.value <= 780) {
+			baseHeight -= 6;
+		}
+
+		return Math.max(140, baseHeight);
 	});
 
 	const cardSlotHeight = computed(() => cardRowHeight.value + cardGap.value);
 	const cardSlotWidth = computed(() => cardColumnWidth.value + cardGap.value);
 
 	const cardContainerWidth = computed(() => {
-		// If we have a reference to the container, try to get its width
-		// Otherwise fallback to an estimated width based on window
-		if (itemsContainerRef.value && itemsContainerRef.value.$el) {
-			return itemsContainerRef.value.$el.clientWidth;
+		if (containerWidth.value > 0) {
+			return containerWidth.value;
 		}
-		// Fallback estimation (e.g. 5 columns of regular grid)
-		// This is just a safe default until mounted
-		return windowWidth.value * 0.4; // Approx 40% of screen for items selector usually
+		return Math.floor(windowWidth.value * 0.55);
 	});
 
 	const cardColumnWidth = computed(() => {
@@ -69,22 +116,14 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		const paddingTotal = cardPadding.value * 2;
 		const available = Math.max(0, containerWidth - gapTotal - paddingTotal);
 		const width = Math.floor(available / columns);
-		return Math.max(180, width);
+		return Math.max(136, width);
 	});
 
 	// Actions
 	const updateWindowWidth = () => {
 		windowWidth.value = window.innerWidth;
+		windowHeight.value = window.innerHeight;
 	};
-
-	const scheduleCardMetricsUpdate = _.debounce(() => {
-		updateWindowWidth();
-		// Force re-evaluation of container width if needed by accessing ref
-		if (itemsContainerRef.value) {
-			// Trigger reactivity if needed, though windowWidth usually drives computed props
-		}
-		checkItemContainerOverflow();
-	}, resizeDebounce);
 
 	const getItemsContainerElement = (): HTMLElement | null => {
 		if (!itemsContainerRef.value) return null;
@@ -93,35 +132,35 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 			itemsContainerRef.value) as HTMLElement | null;
 	};
 
+	const measureContainerWidth = () => {
+		const el = getItemsContainerElement();
+		if (!el) {
+			containerWidth.value = 0;
+			return;
+		}
+		const widths = [
+			el.clientWidth || 0,
+			(el.parentElement as HTMLElement | null)?.clientWidth || 0,
+			(el.closest(".items-grid-area") as HTMLElement | null)?.clientWidth || 0,
+		].filter((value) => value > 0);
+		containerWidth.value = widths.length ? Math.min(...widths) : 0;
+	};
+
+	const scheduleCardMetricsUpdate = _.debounce(() => {
+		updateWindowWidth();
+		measureContainerWidth();
+		checkItemContainerOverflow();
+	}, resizeDebounce);
+
 	const checkItemContainerOverflow = () => {
 		const el = getItemsContainerElement();
 		if (!el) {
 			isOverflowing.value = false;
 			return;
 		}
-
-		const containerHeight = parseFloat(
-			getComputedStyle(el).getPropertyValue("--container-height"),
-		);
-		if (isNaN(containerHeight)) {
-			isOverflowing.value = false;
-			return;
-		}
-
-		const stickyHeader = el
-			.closest(".dynamic-padding")
-			?.querySelector(".sticky-header") as HTMLElement | null;
-		const headerHeight = stickyHeader ? stickyHeader.offsetHeight : 0;
-		const availableHeight = containerHeight - headerHeight;
-
-		// Only apply if calculated height is valid
-		if (availableHeight > 0) {
-			el.style.maxHeight = `${availableHeight}px`;
-			isOverflowing.value = el.scrollHeight > availableHeight;
-		}
-
-		// Also schedule metrics update as this might affect layout
-		// But be careful of infinite loops; separate updateWindowWidth logic if needed
+		// Never force max-height in JS; it causes pane height drift on tablets.
+		// Rely on CSS grid/flex contracts and only detect overflow status.
+		isOverflowing.value = el.scrollHeight > el.clientHeight + 1;
 	};
 
 	const onListScroll = (event: Event) => {
@@ -150,13 +189,26 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	onMounted(() => {
 		window.addEventListener("resize", scheduleCardMetricsUpdate);
 		nextTick(() => {
+			measureContainerWidth();
 			updateWindowWidth();
 			checkItemContainerOverflow();
+			const el = getItemsContainerElement();
+			if (el && typeof ResizeObserver !== "undefined") {
+				resizeObserver = new ResizeObserver(() => {
+					measureContainerWidth();
+					checkItemContainerOverflow();
+				});
+				resizeObserver.observe(el);
+			}
 		});
 	});
 
 	onUnmounted(() => {
 		window.removeEventListener("resize", scheduleCardMetricsUpdate);
+		if (resizeObserver) {
+			resizeObserver.disconnect();
+			resizeObserver = null;
+		}
 		if (scrollThrottle.value) {
 			cancelAnimationFrame(scrollThrottle.value);
 		}
@@ -170,6 +222,7 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		itemsContainerRef, // Bind this to the container in template
 
 		// Computed
+		useSmallMenuGrid,
 		cardColumns,
 		cardGap,
 		cardPadding,

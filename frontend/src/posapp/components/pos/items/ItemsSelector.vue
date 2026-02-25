@@ -1,5 +1,9 @@
 <template>
-	<div :style="responsiveStyles">
+	<div
+		class="items-selector-shell"
+		:class="`catalog-render-${catalogRenderMode}`"
+		:style="responsiveStyles"
+	>
 		<ScanErrorDialog
 			v-model="scanErrorDialog"
 			:message="scanErrorMessage"
@@ -7,19 +11,13 @@
 			:details="scanErrorDetails"
 			@acknowledge="acknowledgeScanError"
 		/>
-		<v-card
-			:class="[
-				'selection mx-auto my-0 py-0 mt-3 pos-card dynamic-card resizable pos-themed-card',
+			<v-card
+				:class="[
+				'selection my-0 py-0 pos-card dynamic-card pos-themed-card items-selector-card',
 				rtlClasses,
 			]"
-			:style="{
-				height: responsiveStyles['--container-height'],
-				maxHeight: responsiveStyles['--container-height'],
-				resize: 'vertical',
-				overflow: 'auto',
-				position: 'relative',
-			}"
-		>
+				style="position: relative"
+			>
 			<v-progress-linear
 				:active="isLoadingOrSyncing"
 				:indeterminate="isLoadingOrSyncing"
@@ -29,8 +27,8 @@
 			></v-progress-linear>
 
 			<!-- Add dynamic-padding wrapper like Invoice component -->
-			<div class="dynamic-padding">
-				<ItemHeader
+			<div class="dynamic-padding items-selector-body">
+					<ItemHeader
 					v-model:search-input="search_input"
 					v-model:qty-input="debounce_qty"
 					v-model:new-line="new_line"
@@ -72,26 +70,8 @@
 						@save="applyItemSettings"
 					/>
 
-					<div v-if="popularItems.length" class="popular-drinks-bar">
-						<div class="popular-drinks-title">{{ __("Popular Drinks") }}</div>
-						<v-slide-group show-arrows>
-							<v-slide-group-item v-for="popular in popularItems" :key="popular.item_code">
-								<v-chip
-									class="mr-2"
-									size="small"
-									color="primary"
-									variant="outlined"
-									:disabled="!!popular.posa_unavailable"
-									@click="handlePopularTap(popular)"
-								>
-									{{ popular.item_name }}
-								</v-chip>
-							</v-slide-group-item>
-						</v-slide-group>
-					</div>
-
-				<v-row class="items">
-					<v-col cols="12" class="pt-0 mt-0">
+				<section class="items-catalog-zone">
+					<div class="items-grid-area">
 						<ItemsSelectorCards
 							v-if="items_view === 'card'"
 							ref="itemsContainer"
@@ -106,6 +86,7 @@
 							:card-column-width="cardColumnWidth"
 							:card-row-height="cardRowHeight"
 							:virtual-scroll-buffer="virtualScrollBuffer"
+							:render-mode="effectiveCatalogRenderMode"
 							:pos-profile="pos_profile"
 							:context="context"
 							:selected-currency="selected_currency"
@@ -148,28 +129,33 @@
 							@row-click="click_item_row"
 							@list-scroll="onListScroll"
 						/>
-					</v-col>
-				</v-row>
+					</div>
+				</section>
+				<div class="items-selector-toolbar-dock">
+					<ItemActionToolbar
+						class="item-action-toolbar"
+						v-model="item_group"
+						:items-group="items_group"
+						:items-view="items_view"
+						:pos-profile="pos_profile"
+						:active-price-list="active_price_list"
+						:offers-count="offersCount"
+						:coupons-count="couponsCount"
+						:prep-enabled="prepQueueEnabled"
+						@update:items-view="setItemsView"
+						@open-offers="uiStore.setActiveView('offers')"
+						@open-coupons="uiStore.setActiveView('coupons')"
+						@open-prep="uiStore.setActiveView('prep')"
+					/>
+				</div>
 			</div>
 		</v-card>
-			<ItemActionToolbar
-				v-model="item_group"
-				:items-group="items_group"
-				v-model:items-view="items_view"
-				:pos-profile="pos_profile"
-				:active-price-list="active_price_list"
-				:offers-count="offersCount"
-				:coupons-count="couponsCount"
-				:prep-enabled="prepQueueEnabled"
-				@open-offers="uiStore.setActiveView('offers')"
-				@open-coupons="uiStore.setActiveView('coupons')"
-				@open-prep="uiStore.setActiveView('prep')"
-			/>
 
 			<ModifierProfileDialog
 				v-model="modifierDialogVisible"
 				:item="modifierDialogItem"
 				:profile="modifierDialogProfile"
+				:initial-selections="modifierDialogInitialSelections"
 				:loading="modifierDialogLoading"
 				:format-currency="modifierDialogFormatCurrency"
 				@confirm="onModifierDialogConfirm"
@@ -250,7 +236,6 @@ import { useInvoiceStore } from "../../../stores/invoiceStore";
 import { parseBooleanSetting } from "../../../utils/stock";
 import matchaService from "../../../services/matchaService";
 import {
-	buildDefaultSelections,
 	buildDrinkCode,
 	buildModifierSignature,
 	buildModifierSummary,
@@ -281,6 +266,7 @@ const { selectedCustomer } = storeToRefs(customersStore);
 const { posProfile: uiPosProfile } = storeToRefs(uiStore);
 
 const __ = (window as any).__;
+const NO_MODIFIER_PROFILE = "__NO_MODIFIER_PROFILE__";
 
 const eventBus = inject("eventBus") as any;
 const selected_currency = ref("");
@@ -325,7 +311,24 @@ const newItemDialog = ref(false);
 const qty = ref(1);
 const search_input = ref("");
 const first_search = ref("");
-const items_view = ref("list");
+const itemsViewStorageKey = "posa_items_view";
+const itemsViewManualKey = "posa_items_view_manual";
+const readSavedItemsView = () => {
+	try {
+		const saved = localStorage.getItem(itemsViewStorageKey);
+		const isManualSelection = localStorage.getItem(itemsViewManualKey) === "1";
+		if (saved === "list" || saved === "card") {
+			if (!isManualSelection && window.innerWidth <= 1200) {
+				return "card";
+			}
+			return saved;
+		}
+	} catch (_error) {
+		// Ignore localStorage access errors and fallback to defaults.
+	}
+	return window.innerWidth <= 900 ? "list" : "card";
+};
+const items_view = ref(readSavedItemsView());
 const itemsPerPage = ref(50);
 const clearingSearch = ref(false);
 const isDragging = ref(false);
@@ -334,11 +337,11 @@ const item_group = ref("");
 const current_invoice_type = ref("Invoice");
 const virtualScrollBuffer = ref(200);
 const localStorageAvailable = ref(true);
-const popularTapTimestamp = ref<Record<string, number>>({});
 
 const modifierDialogVisible = ref(false);
 const modifierDialogItem = ref<any>(null);
 const modifierDialogProfile = ref<ModifierProfilePayload | null>(null);
+const modifierDialogInitialSelections = ref<Record<string, string[]> | null>(null);
 const modifierDialogLoading = ref(false);
 let modifierDialogResolver: null | ((value: any) => void) = null;
 
@@ -402,30 +405,6 @@ const deferStockValidationToPayment = computed(() =>
 
 const { items, filteredItems, customer_price_list, loading, isBackgroundLoading } = itemsIntegration;
 
-const popularItems = computed(() => {
-	const source = Array.isArray(items.value) ? items.value : [];
-	const ranked = source
-		.filter((item: any) => item && item.item_code && !item.has_variants)
-		.sort((a: any, b: any) => {
-			const rankA = Number.isFinite(Number(a.posa_popular_rank))
-				? Number(a.posa_popular_rank)
-				: Number.MAX_SAFE_INTEGER;
-			const rankB = Number.isFinite(Number(b.posa_popular_rank))
-				? Number(b.posa_popular_rank)
-				: Number.MAX_SAFE_INTEGER;
-			if (rankA !== rankB) {
-				return rankA - rankB;
-			}
-			const matchaA = String(a.item_name || "").toLowerCase().includes("matcha") ? -1 : 0;
-			const matchaB = String(b.item_name || "").toLowerCase().includes("matcha") ? -1 : 0;
-			if (matchaA !== matchaB) {
-				return matchaA - matchaB;
-			}
-			return String(a.item_name || "").localeCompare(String(b.item_name || ""));
-		});
-	return ranked.slice(0, 8);
-});
-
 const displayedItems = computed(() => {
 	const baseItems = Array.isArray(filteredItems.value) ? filteredItems.value : [];
 	const rawTerm = first_search.value;
@@ -443,6 +422,21 @@ watch(
 	() => props.showOnlyBarcodeItems,
 	(value) => {
 		showOnlyBarcodeItemsRef.value = !!value;
+	},
+	{ immediate: true },
+);
+
+watch(
+	items_view,
+	(value) => {
+		if (value !== "list" && value !== "card") {
+			return;
+		}
+		try {
+			localStorage.setItem(itemsViewStorageKey, value);
+		} catch (_error) {
+			// Ignore localStorage access errors.
+		}
 	},
 	{ immediate: true },
 );
@@ -478,6 +472,18 @@ const lastSyncTimeLabel = computed(() => {
 	const parsed = new Date(lastSync);
 	return Number.isNaN(parsed.getTime()) ? __("Never") : parsed.toLocaleTimeString();
 });
+
+const setItemsView = (value: "list" | "card") => {
+	if (value !== "list" && value !== "card") {
+		return;
+	}
+	items_view.value = value;
+	try {
+		localStorage.setItem(itemsViewManualKey, "1");
+	} catch (_error) {
+		// Ignore localStorage access errors.
+	}
+};
 
 // 4. Initialization logic for Composables needing Context
 
@@ -529,6 +535,7 @@ const { getLastInvoiceRate, scheduleLastInvoiceRateRefresh, clearLastInvoiceRate
 
 const {
 	isOverflowing,
+	useSmallMenuGrid,
 	cardColumns,
 	cardRowHeight,
 	cardSlotHeight,
@@ -540,6 +547,7 @@ const {
 } = useItemSelectorLayout({
 	resizeDebounce: 100,
 	loadVisibleItems: () => itemsLoader.loadVisibleItems(),
+	getDisplayedItemsCount: () => displayedItems.value.length,
 });
 
 const fetchModifierProfile = async (itemCode: string): Promise<ModifierProfilePayload | null> => {
@@ -558,9 +566,14 @@ const fetchModifierProfile = async (itemCode: string): Promise<ModifierProfilePa
 	}
 };
 
-const openModifierDialog = (item: any, profile: ModifierProfilePayload) => {
+const openModifierDialog = (
+	item: any,
+	profile: ModifierProfilePayload,
+	initialSelections: Record<string, string[]> | null = null,
+) => {
 	modifierDialogItem.value = item;
 	modifierDialogProfile.value = profile;
+	modifierDialogInitialSelections.value = initialSelections;
 	modifierDialogVisible.value = true;
 
 	return new Promise((resolve) => {
@@ -570,34 +583,21 @@ const openModifierDialog = (item: any, profile: ModifierProfilePayload) => {
 
 const resolveModifierSelection = async (
 	item: any,
-	options: { forceModifierDialog?: boolean; fromPopular?: boolean } = {},
+	options: {
+		forceModifierDialog?: boolean;
+		initialSelections?: Record<string, string[]>;
+	} = {},
 ) => {
 	const profile = await fetchModifierProfile(item.item_code);
 	if (!profile || !Array.isArray(profile.groups) || profile.groups.length === 0) {
-		return null;
+		return NO_MODIFIER_PROFILE;
 	}
 
-	const useDefaults = options.fromPopular && !options.forceModifierDialog;
-	if (useDefaults) {
-		const selections = normalizeModifierSelections(buildDefaultSelections(profile));
-		const summary = buildModifierSummary(profile, selections);
-		return {
-			selections,
-			summary: summary.summary,
-			delta_total: Number(summary.delta || 0),
-			option_codes: summary.optionCodes,
-			drink_code: buildDrinkCode(item.item_code, profile.drink_code_prefix, summary.optionCodes),
-			signature: buildModifierSignature(selections),
-			modifiers_json: JSON.stringify({
-				profile: profile.profile,
-				selections,
-				summary: summary.summary,
-			}),
-			prep_status: profile.default_prep_status || "Paid",
-		};
-	}
-
-	const dialogSelection = await openModifierDialog(item, profile);
+	const dialogSelection = await openModifierDialog(
+		item,
+		profile,
+		options.initialSelections || null,
+	);
 	return dialogSelection;
 };
 
@@ -606,6 +606,9 @@ const applyModifierSelectionToItem = (item: any, selection: any) => {
 		return;
 	}
 
+	const previousDelta = Number(item.posa_modifiers_delta || 0);
+	const currentRate = Number(item.rate ?? item.price_list_rate ?? 0);
+	const currentPriceListRate = Number(item.price_list_rate ?? currentRate);
 	const normalizedSelections = normalizeModifierSelections(selection.selections || {});
 	const delta = Number(selection.delta_total || 0);
 	const signature = selection.signature || buildModifierSignature(normalizedSelections);
@@ -621,14 +624,19 @@ const applyModifierSelectionToItem = (item: any, selection: any) => {
 	item.posa_modifier_signature = signature;
 	item.posa_drink_code = selection.drink_code || buildDrinkCode(item.item_code, "", []);
 	item.posa_prep_status = selection.prep_status || "Paid";
+	item.posa_is_prep_item = 1;
 
-	if (delta) {
-		const rate = Number(item.rate ?? item.price_list_rate ?? 0);
-		item.rate = rate + delta;
-		if (item.price_list_rate !== undefined && item.price_list_rate !== null) {
-			item.price_list_rate = Number(item.price_list_rate || 0) + delta;
-		}
-	}
+	const baseRate = Number.isFinite(Number(item.posa_base_rate))
+		? Number(item.posa_base_rate)
+		: currentRate - previousDelta;
+	const basePriceListRate = Number.isFinite(Number(item.posa_base_price_list_rate))
+		? Number(item.posa_base_price_list_rate)
+		: currentPriceListRate - previousDelta;
+
+	item.posa_base_rate = baseRate;
+	item.posa_base_price_list_rate = basePriceListRate;
+	item.rate = baseRate + delta;
+	item.price_list_rate = basePriceListRate + delta;
 };
 
 const onModifierDialogConfirm = (selection: any) => {
@@ -636,6 +644,7 @@ const onModifierDialogConfirm = (selection: any) => {
 		modifierDialogResolver(selection);
 	}
 	modifierDialogResolver = null;
+	modifierDialogInitialSelections.value = null;
 	modifierDialogVisible.value = false;
 };
 
@@ -644,31 +653,57 @@ const onModifierDialogCancel = () => {
 		modifierDialogResolver(null);
 	}
 	modifierDialogResolver = null;
+	modifierDialogInitialSelections.value = null;
 	modifierDialogVisible.value = false;
 };
 
-const handlePopularTap = async (item: any) => {
-	const now = Date.now();
-	const key = String(item?.item_code || "");
-	const lastTap = popularTapTimestamp.value[key] || 0;
-	popularTapTimestamp.value[key] = now;
+const readExistingModifierSelections = (item: any): Record<string, string[]> => {
+	const rawValue = item?.posa_modifiers_json;
+	if (!rawValue) {
+		return {};
+	}
 
-	const forceModifierDialog = now - lastTap < 1800;
-	await add_item(item, {
-		fromPopular: true,
-		forceModifierDialog,
+	try {
+		const parsed = typeof rawValue === "string" ? JSON.parse(rawValue) : rawValue;
+		if (!parsed || typeof parsed !== "object") {
+			return {};
+		}
+		return normalizeModifierSelections((parsed as any).selections || parsed);
+	} catch (_error) {
+		return {};
+	}
+};
+
+const handleEditLineModifiers = async (payload: any) => {
+	const line = payload?.item;
+	if (!line?.item_code) {
+		return;
+	}
+
+	const selection = await resolveModifierSelection(line, {
+		forceModifierDialog: true,
+		initialSelections: readExistingModifierSelections(line),
 	});
+	if (!selection || selection === NO_MODIFIER_PROFILE) {
+		return;
+	}
+
+	applyModifierSelectionToItem(line, selection);
+	if (eventBus && typeof eventBus.emit === "function") {
+		eventBus.emit("apply_pricing_rules");
+	}
 };
 
 // 5. Core Methods
 const add_item = async (item, optionsOrQty: any = {}) => {
-	if (props.context === "pos") {
-		let options: any = typeof optionsOrQty === "object" ? optionsOrQty : { qty: optionsOrQty };
+		if (props.context === "pos") {
+			let options: any = typeof optionsOrQty === "object" ? optionsOrQty : { qty: optionsOrQty };
 		let requestedQty = options.qty !== undefined ? options.qty : qty.value || 0;
 		requestedQty =
 			requestedQty === "" || requestedQty == null ? 1 : Math.abs(parseFloat(requestedQty) || 1);
 
-		item = { ...item };
+			item = { ...item };
+			item.posa_is_prep_item = Number(item.posa_is_prep_item || 0) || 0;
 		if (item.posa_unavailable) {
 			toastStore.show({
 				title: __("Item unavailable"),
@@ -725,8 +760,11 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 			if (isValid) {
 				const selection = await resolveModifierSelection(item, {
 					forceModifierDialog: !!options.forceModifierDialog,
-					fromPopular: !!options.fromPopular,
 				});
+				if (selection === null) {
+					// Dialog cancelled by cashier; avoid adding an unconfigured line.
+					return;
+				}
 				if (
 					Array.isArray((selection as any)?.errors) &&
 					(selection as any).errors.length
@@ -739,7 +777,11 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 					});
 					return;
 				}
-				applyModifierSelectionToItem(item, selection);
+					if (selection !== NO_MODIFIER_PROFILE) {
+						applyModifierSelectionToItem(item, selection);
+					} else {
+						item.posa_is_prep_item = 0;
+					}
 
 				await useItemAddition().prepareItemForCart(item, requestedQty, context);
 				await useItemAddition().addItem(item, context);
@@ -968,6 +1010,7 @@ onMounted(async () => {
 			syncSelectorPriceList(priceList);
 		});
 		eventBus.on("update_invoice_type", handleInvoiceTypeUpdate);
+		eventBus.on("edit-line-modifiers", handleEditLineModifiers);
 	}
 
 	// Watch UI Profile for initialization (Source of Truth)
@@ -1042,6 +1085,7 @@ onBeforeUnmount(() => {
 		eventBus.off("update_currency");
 		eventBus.off("update_customer_price_list");
 		eventBus.off("update_invoice_type", handleInvoiceTypeUpdate);
+		eventBus.off("edit-line-modifiers", handleEditLineModifiers);
 	}
 	window.removeEventListener("resize", checkItemContainerOverflow);
 });
@@ -1087,6 +1131,12 @@ const modifierDialogFormatCurrency = (value: number) => {
 	}
 	return String(value ?? 0);
 };
+const effectiveCatalogRenderMode = computed(() => {
+	if (catalogRenderMode.value !== "small-menu-grid") {
+		return "card-grid";
+	}
+	return useSmallMenuGrid.value ? "small-menu-grid" : "card-grid";
+});
 
 const isItemHighlighted = (index) => itemSelection.highlightedIndex.value === index;
 const isNegative = (val) => val < 0;
@@ -1100,7 +1150,7 @@ const {
 	acknowledgeScanError,
 	onBarcodeScanned: onBarcodeScannedFromScannerInput,
 } = scannerInput;
-const { responsiveStyles } = responsive;
+const { responsiveStyles, catalogRenderMode } = responsive;
 const { rtlClasses } = rtl;
 
 // Proxy functions for template
@@ -1208,6 +1258,7 @@ defineExpose({
 	onVirtualRangeUpdate,
 	onListScroll,
 	responsiveStyles,
+	catalogRenderMode,
 	rtlClasses,
 	scanErrorDialog,
 	scanErrorMessage,
@@ -1271,10 +1322,31 @@ defineExpose({
 </script>
 
 <style scoped>
+.items-selector-shell {
+	height: 100%;
+	min-height: 0;
+	display: flex;
+	flex-direction: column;
+}
+
+.items-selector-card {
+	flex: 1 1 auto;
+	display: flex;
+	flex-direction: column;
+	min-height: 0;
+	height: 100%;
+}
+
 /* "dynamic-card" no longer composes from pos-card; the pos-card class is added directly in the template */
 .dynamic-padding {
 	/* Equal spacing on all sides for consistent alignment */
 	padding: var(--dynamic-sm);
+	flex: 1 1 auto;
+	min-height: 0;
+}
+
+.items-selector-body > * {
+	min-width: 0;
 }
 
 .dynamic-scroll {
@@ -1352,32 +1424,39 @@ defineExpose({
 }
 
 .selection {
-	background-color: var(--surface-secondary) !important;
+	background-color: var(--pos-card-bg) !important;
 }
 
-.popular-drinks-bar {
-	margin: 8px 0 14px;
-	padding: 10px 12px;
-	border-radius: 12px;
-	background:
-		linear-gradient(120deg, rgba(238, 250, 237, 0.95), rgba(248, 252, 245, 0.98)),
-		rgba(var(--v-theme-surface), 0.9);
-	border: 1px solid rgba(var(--v-theme-primary), 0.22);
+.items-catalog-zone {
+	min-height: 0;
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	grid-template-rows: minmax(0, 1fr);
+	gap: 0;
+	width: 100%;
+	max-width: 100%;
+	min-width: 0;
 }
 
-.popular-drinks-title {
-	font-weight: 700;
-	font-size: 0.88rem;
-	margin-bottom: 8px;
-	color: rgb(var(--v-theme-primary));
-	letter-spacing: 0.02em;
-	text-transform: uppercase;
+.items-grid-area {
+	min-height: 0;
+	height: 100%;
+	margin: 0;
+	width: 100%;
+	max-width: 100%;
+	overflow: hidden;
+	display: flex;
+	flex-direction: column;
 }
 
-:deep(.popular-drinks-bar .v-chip) {
-	min-height: 44px;
-	padding-inline: 14px;
-	font-weight: 600;
+.items-grid-area > * {
+	flex: 1 1 auto;
+	min-height: 0;
+	min-width: 0;
+}
+
+.items-selector-toolbar-dock {
+	flex-shrink: 0;
 }
 
 .item-selection-option {

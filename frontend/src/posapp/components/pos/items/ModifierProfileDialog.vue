@@ -37,7 +37,12 @@
 						<div v-for="(message, index) in errorMessages" :key="index">{{ message }}</div>
 					</v-alert>
 
-					<div v-for="group in groups" :key="group.name" class="modifier-group">
+					<div
+						v-for="group in groups"
+						:key="group.name"
+						class="modifier-group"
+						:class="{ 'modifier-group-invalid': invalidGroupSet.has(group.name) }"
+					>
 						<div class="d-flex align-center justify-space-between mb-2">
 							<div class="modifier-group-title">
 								{{ group.name }}
@@ -63,6 +68,12 @@
 								</span>
 							</v-chip>
 						</div>
+						<div
+							v-if="invalidGroupSet.has(group.name)"
+							class="modifier-group-hint text-error"
+						>
+							{{ __("Please select") }}: {{ group.name }}
+						</div>
 					</div>
 				</div>
 			</v-card-text>
@@ -78,7 +89,9 @@
 				>
 					{{ __("Use Defaults") }}
 				</v-btn>
-				<v-btn color="primary" variant="flat" @click="emitConfirm">{{ __("Apply") }}</v-btn>
+				<v-btn color="primary" variant="flat" :disabled="!canApply" @click="emitConfirm">{{
+					__("Apply")
+				}}</v-btn>
 			</v-card-actions>
 		</v-card>
 	</v-dialog>
@@ -93,6 +106,7 @@ import {
 	buildModifierSignature,
 	buildModifierSummary,
 	normalizeModifierSelections,
+	pruneModifierSelections,
 	type ModifierGroup,
 	type ModifierOption,
 	type ModifierProfilePayload,
@@ -104,6 +118,7 @@ const props = defineProps<{
 	modelValue: boolean;
 	item: any;
 	profile: ModifierProfilePayload | null;
+	initialSelections?: Record<string, string[] | string> | null;
 	loading?: boolean;
 	formatCurrency?: (...args: any[]) => string;
 }>();
@@ -131,12 +146,43 @@ const formatCurrency = (value: number) => {
 	}).format(value || 0);
 };
 
-const computedSummary = computed(() => buildModifierSummary(props.profile, selections.value));
+const getSanitizedSelections = (input: Record<string, string[]>) => {
+	return pruneModifierSelections(props.profile, input);
+};
+
+const computedSummary = computed(() => buildModifierSummary(props.profile, getSanitizedSelections(selections.value)));
 const computedDelta = computed(() => Number(computedSummary.value.delta || 0));
+const invalidRequiredGroups = computed(() => {
+	const activeSelections = getSanitizedSelections(selections.value);
+	return groups.value
+		.filter((group) => {
+			if (!group.required) {
+				return false;
+			}
+			const visibleOptions = getVisibleOptions(group);
+			if (!visibleOptions.length) {
+				return false;
+			}
+			return !(activeSelections[group.name] || []).length;
+		})
+		.map((group) => group.name);
+});
+const invalidGroupSet = computed(() => new Set(invalidRequiredGroups.value));
+const canApply = computed(() => {
+	if (props.loading) {
+		return false;
+	}
+	if (!groups.value.length) {
+		return true;
+	}
+	return invalidRequiredGroups.value.length === 0;
+});
 
 const buildInitialSelections = () => {
 	const defaults = buildDefaultSelections(props.profile);
-	selections.value = normalizeModifierSelections(defaults);
+	const initial = normalizeModifierSelections(props.initialSelections || {});
+	const merged = Object.keys(initial).length ? initial : defaults;
+	selections.value = getSanitizedSelections(normalizeModifierSelections(merged));
 	errorMessages.value = [];
 };
 
@@ -192,26 +238,32 @@ const toggleOption = (group: ModifierGroup, option: ModifierOption) => {
 
 	if (group.allow_multiple) {
 		if (selected) {
-			selections.value[groupName] = current.filter((value) => value !== option.value);
+			if (group.required && current.length <= 1) {
+				// Keep at least one choice for required multi-select groups.
+				selections.value[groupName] = [...current];
+			} else {
+				selections.value[groupName] = current.filter((value) => value !== option.value);
+			}
 		} else {
 			selections.value[groupName] = [...current, option.value];
 		}
+		selections.value = getSanitizedSelections(selections.value);
 		return;
 	}
 
-	selections.value[groupName] = selected ? [] : [option.value];
+	if (selected && group.required) {
+		// Keep one selection for required single-choice groups to avoid accidental invalid state.
+		selections.value[groupName] = [option.value];
+	} else {
+		selections.value[groupName] = selected ? [] : [option.value];
+	}
+	selections.value = getSanitizedSelections(selections.value);
 };
 
 const validateSelections = () => {
 	const messages: string[] = [];
-	groups.value.forEach((group) => {
-		if (!group.required) {
-			return;
-		}
-		const selectedValues = selections.value[group.name] || [];
-		if (!selectedValues.length) {
-			messages.push(`${__("Please select")}: ${group.name}`);
-		}
+	invalidRequiredGroups.value.forEach((groupName) => {
+		messages.push(`${__("Please select")}: ${groupName}`);
 	});
 	errorMessages.value = messages;
 	return messages.length === 0;
@@ -231,6 +283,7 @@ const emitConfirm = () => {
 		return;
 	}
 
+	const normalizedSelections = getSanitizedSelections(selections.value);
 	const summary = computedSummary.value;
 	const itemCode = props.item?.item_code || "";
 	const drinkCode = buildDrinkCode(
@@ -238,7 +291,6 @@ const emitConfirm = () => {
 		props.profile?.drink_code_prefix,
 		summary.optionCodes,
 	);
-	const normalizedSelections = normalizeModifierSelections(selections.value);
 	const signature = buildModifierSignature(normalizedSelections);
 
 	emit("confirm", {
@@ -277,6 +329,11 @@ const emitConfirm = () => {
 	background: rgba(var(--v-theme-surface), 0.6);
 }
 
+.modifier-group-invalid {
+	border-color: rgba(var(--v-theme-error), 0.45);
+	background: rgba(var(--v-theme-error), 0.05);
+}
+
 .modifier-group-title {
 	font-weight: 700;
 }
@@ -285,6 +342,12 @@ const emitConfirm = () => {
 	display: flex;
 	flex-wrap: wrap;
 	gap: 8px;
+}
+
+.modifier-group-hint {
+	margin-top: 8px;
+	font-size: 0.78rem;
+	font-weight: 600;
 }
 
 .modifier-chip-selected {

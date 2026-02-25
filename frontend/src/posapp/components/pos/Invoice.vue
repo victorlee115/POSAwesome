@@ -1,24 +1,20 @@
 <template>
 	<!-- Main Invoice Wrapper -->
-	<div class="pa-0">
+	<div class="pa-0 invoice-shell">
 		<!-- Cancel Sale Confirmation Dialog -->
 		<CancelSaleDialog v-model="cancel_dialog" @confirm="cancel_invoice" />
 
 		<!-- Main Invoice Card (contains all invoice content) -->
 		<v-card
 			ref="invoiceCard"
-			:style="{
-				height: invoiceHeight || 'var(--container-height)',
-				maxHeight: invoiceHeight || 'var(--container-height)',
-				resize: 'vertical',
-				overflow: 'auto',
-			}"
-			:class="['cards my-0 py-0 mt-3 resizable', 'pos-themed-card', { 'return-mode': isReturnInvoice }]"
-			@mouseup="saveInvoiceHeight($refs.invoiceCard)"
-			@touchend="saveInvoiceHeight($refs.invoiceCard)"
+			:class="[
+				'cards my-0 py-0 mt-3 invoice-card',
+				'pos-themed-card',
+				{ 'return-mode': isReturnInvoice },
+			]"
 		>
 			<!-- Dynamic padding wrapper -->
-			<div class="dynamic-padding">
+			<div class="dynamic-padding invoice-card-body">
 				<v-alert
 					type="info"
 					density="compact"
@@ -124,6 +120,8 @@
 					<!-- ItemsTable component with reorder event handler -->
 					<ItemsTable
 						ref="itemsTableRef"
+						:deviceProfile="deviceProfile"
+						:cartRenderMode="cartRenderMode"
 						:headers="items_headers"
 						v-model:expanded="expanded"
 						:itemsPerPage="itemsPerPage"
@@ -168,6 +166,37 @@
 					/>
 				</div>
 			</div>
+
+			<div class="invoice-summary-dock">
+				<InvoiceSummary
+					ref="invoiceSummary"
+					class="invoice-summary-card"
+					:pos_profile="pos_profile"
+					:total_qty="total_qty"
+					:additional_discount="additional_discount"
+					:additional_discount_percentage="additional_discount_percentage"
+					:total_items_discount_amount="total_items_discount_amount"
+					:subtotal="subtotal"
+					:displayCurrency="displayCurrency"
+					:formatFloat="formatFloat"
+					:formatCurrency="formatCurrency"
+					:currencySymbol="currencySymbol"
+					:discount_percentage_offer_name="discount_percentage_offer_name"
+					:isNumber="isNumber"
+					:return_discount_meta="return_discount_meta"
+					@update:additional_discount="(val) => (additional_discount = val)"
+					@update:additional_discount_percentage="(val) => (additional_discount_percentage = val)"
+					@update_discount_umount="update_discount_umount"
+					@save-and-clear="save_and_clear_invoice"
+					@load-drafts="get_draft_invoices"
+					@cancel-sale="cancel_dialog = true"
+					@open-returns="open_returns"
+					@print-draft="print_draft_invoice"
+					@apply-offers="apply_offers_and_reload"
+					@show-payment="handleShowPaymentRequest"
+					@open-customer-display="handleOpenCustomerDisplayRequest"
+				/>
+			</div>
 		</v-card>
 
 		<!-- Payment Confirmation Dialog -->
@@ -178,34 +207,6 @@
 			@cancel="resolvePaymentConfirmation(false)"
 		/>
 
-		<!-- Payment Section -->
-		<InvoiceSummary
-			ref="invoiceSummary"
-			:pos_profile="pos_profile"
-			:total_qty="total_qty"
-			:additional_discount="additional_discount"
-			:additional_discount_percentage="additional_discount_percentage"
-			:total_items_discount_amount="total_items_discount_amount"
-			:subtotal="subtotal"
-			:displayCurrency="displayCurrency"
-			:formatFloat="formatFloat"
-			:formatCurrency="formatCurrency"
-			:currencySymbol="currencySymbol"
-			:discount_percentage_offer_name="discount_percentage_offer_name"
-			:isNumber="isNumber"
-			:return_discount_meta="return_discount_meta"
-			@update:additional_discount="(val) => (additional_discount = val)"
-			@update:additional_discount_percentage="(val) => (additional_discount_percentage = val)"
-			@update_discount_umount="update_discount_umount"
-			@save-and-clear="save_and_clear_invoice"
-			@load-drafts="get_draft_invoices"
-			@cancel-sale="cancel_dialog = true"
-			@open-returns="open_returns"
-			@print-draft="print_draft_invoice"
-			@apply-offers="apply_offers_and_reload"
-			@show-payment="handleShowPaymentRequest"
-			@open-customer-display="handleOpenCustomerDisplayRequest"
-		/>
 	</div>
 </template>
 
@@ -235,6 +236,7 @@ import { ref } from "vue";
 
 // Composables
 import { useOnlineStatus } from "../../composables/core/useOnlineStatus";
+import { useResponsive } from "../../composables/core/useResponsive";
 import { useInvoiceCurrency } from "../../composables/pos/invoice/useInvoiceCurrency";
 import { useInvoiceItems } from "../../composables/pos/invoice/useInvoiceItems";
 import { useInvoiceOffers } from "../../composables/pos/invoice/useInvoiceOffers";
@@ -251,6 +253,7 @@ export default {
 		const customersStore = useCustomersStore();
 		const toastStore = useToastStore();
 		const { isOnline } = useOnlineStatus();
+		const { deviceProfile, cartRenderMode } = useResponsive();
 
 		const { activeView } = storeToRefs(uiStore);
 		const { selectedCustomer, refreshToken: customerRefreshToken } = storeToRefs(customersStore);
@@ -286,6 +289,8 @@ export default {
 			customerRefreshToken,
 			invoiceType,
 			itemsTableRef,
+			deviceProfile,
+			cartRenderMode,
 			...currencyState,
 			...itemActions,
 			...offerLogic,
@@ -958,7 +963,7 @@ export default {
 <style scoped>
 /* Card background adjustments */
 .cards {
-	background-color: var(--surface-secondary) !important;
+	background-color: var(--pos-card-bg) !important;
 }
 
 /* Style for selected checkbox button */
@@ -1016,119 +1021,4 @@ export default {
 	z-index: 1;
 }
 
-/* Dynamic padding for responsive layout */
-.dynamic-padding {
-	/* Uniform spacing for better alignment */
-	padding: var(--dynamic-sm);
-}
-
-/* Responsive breakpoints */
-@media (max-width: 768px) {
-	.dynamic-padding {
-		/* Smaller uniform padding on tablets */
-		padding: var(--dynamic-xs);
-	}
-
-	.dynamic-padding .v-row {
-		margin: 0 -2px;
-	}
-
-	.dynamic-padding .v-col {
-		padding: 2px 4px;
-	}
-
-	.items-table-wrapper {
-		/* Adjust for smaller padding on tablets */
-		margin-left: calc(-1 * var(--dynamic-xs));
-		margin-right: calc(-1 * var(--dynamic-xs));
-		width: calc(100% + 2 * var(--dynamic-xs));
-		max-width: calc(100% + 2 * var(--dynamic-xs));
-	}
-
-	.item-search-field {
-		max-width: 100%;
-	}
-}
-
-@media (max-width: 480px) {
-	.dynamic-padding {
-		padding: var(--dynamic-xs);
-	}
-
-	.dynamic-padding .v-row {
-		margin: 0 -1px;
-	}
-
-	.dynamic-padding .v-col {
-		padding: 1px 2px;
-	}
-
-	.items-table-wrapper {
-		/* Adjust for smallest screens */
-		margin-left: calc(-1 * var(--dynamic-xs));
-		margin-right: calc(-1 * var(--dynamic-xs));
-		width: calc(100% + 2 * var(--dynamic-xs));
-		max-width: calc(100% + 2 * var(--dynamic-xs));
-	}
-
-	.item-search-field {
-		flex-basis: 100%;
-		max-width: 100%;
-		margin-right: 0;
-	}
-}
-
-.column-selector-container {
-	display: flex;
-	align-items: center;
-	justify-content: flex-end;
-	flex-wrap: wrap;
-	gap: 8px;
-	padding: 8px 16px;
-	background-color: var(--pos-card-bg);
-	border-radius: 8px 8px 0 0;
-	box-sizing: border-box;
-	margin-bottom: 8px;
-}
-
-.item-search-field {
-	width: 100%;
-	max-width: 320px;
-	flex: 1 1 240px;
-	margin-right: auto;
-}
-
-.column-selector-btn {
-	font-size: 0.875rem;
-}
-
-.items-table-wrapper {
-	position: relative;
-	margin-top: var(--dynamic-sm);
-	/* Override parent padding to make table full-width */
-	margin-left: calc(-1 * var(--dynamic-sm));
-	margin-right: calc(-1 * var(--dynamic-sm));
-	width: calc(100% + 2 * var(--dynamic-sm));
-	max-width: calc(100% + 2 * var(--dynamic-sm));
-	box-sizing: border-box;
-}
-
-/* New styles for improved column switches */
-:deep(.column-switch) {
-	margin: 0;
-	padding: 0;
-}
-
-:deep(.column-switch .v-switch__track) {
-	opacity: 0.7;
-}
-
-:deep(.column-switch .v-switch__thumb) {
-	transform: scale(0.8);
-}
-
-:deep(.column-switch .v-label) {
-	opacity: 0.9;
-	font-size: 0.95rem;
-}
 </style>

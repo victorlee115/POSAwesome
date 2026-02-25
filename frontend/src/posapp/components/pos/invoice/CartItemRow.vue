@@ -1,107 +1,116 @@
-<template>
-	<tr class="posa-cart-item-row" v-memo="memoDeps">
-		<!-- Item Name Column -->
-		<td class="text-start" :data-column-key="'item_name'">
-			<div class="d-flex align-center">
-				<span>{{ item.item_name }}</span>
-				<v-chip v-if="item.is_bundle" color="secondary" size="x-small" class="ml-1">
-					{{ __("Bundle") }}
-				</v-chip>
-				<v-chip v-if="item.name_overridden" color="primary" size="x-small" class="ml-1">
-					{{ __("Edited") }}
-				</v-chip>
-				<v-chip
-					v-if="item.batch_no_is_expired"
-					color="error"
-					size="x-small"
-					variant="flat"
-					class="ml-1"
-				>
-					{{ __("Expired") }}
-				</v-chip>
-				<v-chip
-					v-if="item.has_batch_no && item.batch_no"
-					color="info"
-					size="x-small"
-					variant="tonal"
-					class="ml-1"
-				>
-					{{ __("Batch") }}: {{ item.batch_no }}
-				</v-chip>
-				<v-chip
-					v-if="item.posa_is_offer || item.is_free_item"
-					color="success"
-					size="x-small"
-					variant="flat"
-					class="me-1"
-				>
-					{{ __("Offer Item") }}
-				</v-chip>
-				<v-tooltip v-if="item.pricing_rule_badge" location="bottom">
-					<template #activator="{ props }">
-						<v-chip v-bind="props" color="primary" size="x-small" class="ml-1">
-							{{ item.pricing_rule_badge.label }}
+	<template>
+		<tr class="posa-cart-item-row" v-memo="memoDeps">
+			<!-- Item Name Column -->
+			<td class="text-start" :data-column-key="'item_name'">
+				<div class="posa-item-name-cell">
+					<div class="posa-item-title-row d-flex align-center flex-wrap ga-1">
+						<span class="posa-item-name-text">{{ item.item_name }}</span>
+						<v-chip v-if="item.is_bundle" color="secondary" size="x-small" class="ml-1">
+							{{ __("Bundle") }}
 						</v-chip>
-					</template>
-					<span>{{ item.pricing_rule_badge.tooltip }}</span>
-				</v-tooltip>
-				<v-btn
-					v-if="posProfile.posa_allow_line_item_name_override && !item.posa_is_replace"
-					icon
-					size="x-small"
-					variant="text"
-					class="ml-1"
-					@click.stop="$emit('open-name-dialog', item)"
-					:aria-label="__('Edit item name')"
-				>
-					<v-icon size="small">mdi-pencil</v-icon>
-				</v-btn>
-				<v-btn
-					v-if="item.name_overridden"
-					icon
-					size="x-small"
-					variant="text"
-					class="ml-1"
-					@click.stop="$emit('reset-item-name', item)"
-					:aria-label="__('Reset item name')"
-				>
-					<v-icon size="small">mdi-undo</v-icon>
-				</v-btn>
-			</div>
-			<div
-				v-if="showLineMeta"
-				class="posa-line-meta mt-1 d-flex align-center ga-1 flex-wrap"
-			>
-				<v-chip
-					v-if="item.posa_modifier_summary"
-					size="x-small"
-					color="secondary"
-					variant="tonal"
-					class="meta-chip"
-				>
-					{{ item.posa_modifier_summary }}
-				</v-chip>
-				<v-chip
-					v-if="item.posa_drink_code"
-					size="x-small"
-					color="primary"
-					variant="outlined"
-					class="meta-chip"
-				>
-					{{ item.posa_drink_code }}
-				</v-chip>
-				<v-chip
-					v-if="prepStatus"
-					size="x-small"
-					:color="prepStatusColor"
-					variant="tonal"
-					class="meta-chip prep-chip"
-					@click.stop="cyclePrepStatus"
-				>
-					{{ __("Prep") }}: {{ prepStatus }}
-				</v-chip>
-			</div>
-		</td>
+						<v-chip v-if="item.name_overridden" color="primary" size="x-small" class="ml-1">
+							{{ __("Edited") }}
+						</v-chip>
+						<v-chip
+							v-if="item.batch_no_is_expired"
+							color="error"
+							size="x-small"
+							variant="flat"
+							class="ml-1"
+						>
+							{{ __("Expired") }}
+						</v-chip>
+						<v-chip
+							v-if="item.has_batch_no && item.batch_no"
+							color="info"
+							size="x-small"
+							variant="tonal"
+							class="ml-1"
+						>
+							{{ __("Batch") }}: {{ item.batch_no }}
+						</v-chip>
+						<v-chip
+							v-if="item.posa_is_offer || item.is_free_item"
+							color="success"
+							size="x-small"
+							variant="flat"
+							class="me-1"
+						>
+							{{ __("Offer Item") }}
+						</v-chip>
+						<v-tooltip v-if="item.pricing_rule_badge" location="bottom">
+							<template #activator="{ props }">
+								<v-chip v-bind="props" color="primary" size="x-small" class="ml-1">
+									{{ item.pricing_rule_badge.label }}
+								</v-chip>
+							</template>
+							<span>{{ item.pricing_rule_badge.tooltip }}</span>
+						</v-tooltip>
+						<v-btn
+							v-if="posProfile.posa_allow_line_item_name_override && !item.posa_is_replace"
+							icon
+							size="x-small"
+							variant="text"
+							class="ml-1"
+							@click.stop="$emit('open-name-dialog', item)"
+							:aria-label="__('Edit item name')"
+						>
+							<v-icon size="small">mdi-pencil</v-icon>
+						</v-btn>
+						<v-btn
+							v-if="item.name_overridden"
+							icon
+							size="x-small"
+							variant="text"
+							class="ml-1"
+							@click.stop="$emit('reset-item-name', item)"
+							:aria-label="__('Reset item name')"
+						>
+							<v-icon size="small">mdi-undo</v-icon>
+						</v-btn>
+					</div>
+					<div
+						v-if="showLineMeta"
+						class="posa-line-meta mt-1 d-flex align-center ga-1 flex-wrap"
+					>
+						<div v-if="modifierSummaryText" class="posa-modifier-summary" :title="modifierSummaryText">
+							<v-icon size="12" class="mr-1">mdi-tune-variant</v-icon>
+							<span>{{ modifierSummaryText }}</span>
+						</div>
+						<v-chip
+							v-if="item.posa_drink_code"
+							size="x-small"
+							color="primary"
+							variant="outlined"
+							class="meta-chip"
+						>
+							{{ item.posa_drink_code }}
+						</v-chip>
+						<v-chip
+							v-if="prepStatus"
+							size="x-small"
+							:color="prepStatusColor"
+							variant="tonal"
+							class="meta-chip prep-chip"
+							@click.stop="cyclePrepStatus"
+						>
+							{{ __("Prep") }}: {{ prepStatus }}
+						</v-chip>
+						<v-btn
+							v-if="showLineMeta && !item.posa_is_replace"
+							size="x-small"
+							variant="outlined"
+							class="meta-edit-btn"
+							prepend-icon="mdi-tune-variant"
+							@click.stop="
+								$emit('edit-modifiers', String(item.posa_row_id || item.item_code || ''))
+							"
+						>
+							{{ __("Edit") }}
+						</v-btn>
+					</div>
+				</div>
+			</td>
 
 		<!-- Quantity Column -->
 		<td class="text-center" :data-column-key="'qty'">
@@ -306,7 +315,7 @@
 		</td>
 
 		<!-- Rate Column -->
-		<td class="text-center" :data-column-key="'rate'">
+			<td v-if="showRate" class="text-center" :data-column-key="'rate'">
 			<div class="posa-cart-table__editor-box">
 				<div
 					v-if="!isEditingRate"
@@ -364,7 +373,7 @@
 		</td>
 
 		<!-- Actions -->
-		<td class="text-center" :data-column-key="'actions'">
+			<td v-if="showActions" class="text-center" :data-column-key="'actions'">
 			<v-btn
 				:disabled="!!item.posa_is_replace"
 				size="small"
@@ -381,6 +390,7 @@
 
 <script setup>
 import { computed, nextTick, ref } from "vue";
+import { normalizeModifierSelections } from "../../../utils/modifierUtils";
 
 defineOptions({
 	name: "CartItemRow",
@@ -411,6 +421,14 @@ const props = defineProps({
 	showDiscountPercent: Boolean,
 	showDiscountAmount: Boolean,
 	showOffer: Boolean,
+	showRate: {
+		type: Boolean,
+		default: true,
+	},
+	showActions: {
+		type: Boolean,
+		default: true,
+	},
 });
 
 const emit = defineEmits([
@@ -424,6 +442,9 @@ const emit = defineEmits([
 	"update-discount-percent",
 	"update-discount-amount",
 	"update-prep-status",
+	"edit-modifiers",
+	"toggle-offer",
+	"remove-item",
 ]);
 
 const __ = window.__ || ((text) => text);
@@ -462,6 +483,7 @@ const memoDeps = computed(() => {
 		props.item.posa_offer_applied,
 		props.item.is_free_item,
 		props.item.price_list_rate,
+		props.item.posa_modifiers_json,
 		props.item.posa_modifier_summary,
 		props.item.posa_drink_code,
 		props.item.posa_prep_status,
@@ -472,19 +494,45 @@ const memoDeps = computed(() => {
 		isEditingDiscountPercent.value,
 		isEditingDiscountAmount.value,
 	];
-	console.log(`[CartItemRow] memoDeps updated for ${props.item.item_code}`, {
-		uom: props.item.uom,
-		rate: props.item.rate,
-		price_list_rate: props.item.price_list_rate,
-		qty: props.item.qty,
-	});
 	return deps;
+});
+
+const modifierSummaryText = computed(() => {
+	const rawValue = props.item?.posa_modifiers_json;
+	if (rawValue) {
+		try {
+			const parsed =
+				typeof rawValue === "string" && rawValue.trim() ? JSON.parse(rawValue) : rawValue;
+			const normalized = normalizeModifierSelections(parsed);
+			const groupedSummary = Object.entries(normalized)
+				.map(([groupName, values]) => {
+					const cleaned = (values || [])
+						.map((entry) => String(entry || "").trim())
+						.filter(Boolean)
+						.join(", ");
+					if (!cleaned) {
+						return "";
+					}
+					return `${groupName}: ${cleaned}`;
+				})
+				.filter(Boolean)
+				.join(" • ");
+
+			if (groupedSummary) {
+				return groupedSummary;
+			}
+		} catch (_error) {
+			// Fallback to explicit summary from line item fields.
+		}
+	}
+
+	const explicit = String(props.item?.posa_modifier_summary || "").trim();
+	return explicit;
 });
 
 const showLineMeta = computed(() => {
 	return Boolean(
-		props.item?.posa_modifiers_json ||
-			props.item?.posa_modifier_summary ||
+		modifierSummaryText.value ||
 			props.item?.posa_drink_code ||
 			props.item?.posa_prep_status,
 	);
@@ -749,12 +797,49 @@ td {
 	position: relative;
 }
 
+.posa-cart-item-row td[data-column-key="item_name"] > .posa-item-name-cell {
+	width: 100%;
+	height: 100%;
+	display: flex;
+	flex-direction: column;
+	align-items: flex-start;
+	justify-content: center;
+	text-align: left;
+	gap: 2px;
+}
+
+.posa-item-name-text {
+	font-weight: 600;
+	line-height: 1.2;
+}
+
 .posa-line-meta {
+	width: 100%;
 	row-gap: 4px;
+	column-gap: 6px;
+	align-items: center;
+	justify-content: flex-start;
 }
 
 .meta-chip {
 	max-width: 100%;
+}
+
+.posa-modifier-summary {
+	display: inline-flex;
+	align-items: center;
+	gap: 4px;
+	max-width: 100%;
+	padding: 2px 6px;
+	border-radius: 999px;
+	border: 1px solid rgba(var(--v-theme-secondary), 0.28);
+	background: rgba(var(--v-theme-secondary), 0.08);
+	color: rgba(var(--v-theme-on-surface), 0.85);
+	font-size: 0.72rem;
+	line-height: 1.2;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
 }
 
 .meta-chip :deep(.v-chip__content) {

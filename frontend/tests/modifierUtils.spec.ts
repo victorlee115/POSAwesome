@@ -6,6 +6,7 @@ import {
 	buildModifierSignature,
 	buildModifierSummary,
 	normalizeModifierSelections,
+	pruneModifierSelections,
 } from "../src/posapp/utils/modifierUtils";
 
 describe("modifierUtils", () => {
@@ -31,6 +32,7 @@ describe("modifierUtils", () => {
 			groups: [
 				{
 					name: "Size",
+					required: true,
 					options: [
 						{ label: "Small", value: "Small" },
 						{ label: "Large", value: "Large", is_default: true },
@@ -42,6 +44,20 @@ describe("modifierUtils", () => {
 		expect(defaults).toEqual({
 			Size: ["Large"],
 		});
+	});
+
+	it("does not auto-default optional groups", () => {
+		const defaults = buildDefaultSelections({
+			groups: [
+				{
+					name: "Add Ons",
+					required: false,
+					options: [{ label: "Boba", value: "Boba" }],
+				},
+			],
+		});
+
+		expect(defaults).toEqual({});
 	});
 
 	it("builds stable signatures for selection maps", () => {
@@ -90,5 +106,75 @@ describe("modifierUtils", () => {
 		expect(code).toContain("MTC");
 		expect(code).toContain("MATCHA-LAT");
 		expect(code).toContain("OAT");
+	});
+
+	it("prunes dependency-mismatched selections", () => {
+		const profile = {
+			groups: [
+				{
+					name: "Temperature",
+					options: [
+						{ value: "Iced", label: "Iced" },
+						{ value: "Hot", label: "Hot" },
+					],
+				},
+				{
+					name: "Ice Level",
+					options: [
+						{
+							value: "Regular Ice",
+							label: "Regular Ice",
+							parent_option_group: "Temperature",
+							parent_option_value: "Iced",
+						},
+					],
+				},
+			],
+		};
+
+		const pruned = pruneModifierSelections(profile, {
+			Temperature: ["Hot"],
+			"Ice Level": ["Regular Ice"],
+		});
+
+		expect(pruned).toEqual({
+			Temperature: ["Hot"],
+		});
+	});
+
+	it("builds summary without hidden dependent options", () => {
+		const profile = {
+			groups: [
+				{
+					name: "Temperature",
+					options: [
+						{ value: "Iced", label: "Iced", code: "IC" },
+						{ value: "Hot", label: "Hot", code: "HT" },
+					],
+				},
+				{
+					name: "Ice Level",
+					options: [
+						{
+							value: "Regular Ice",
+							label: "Regular Ice",
+							price_delta: 0.3,
+							code: "I2",
+							parent_option_group: "Temperature",
+							parent_option_value: "Iced",
+						},
+					],
+				},
+			],
+		};
+
+		const summary = buildModifierSummary(profile, {
+			Temperature: ["Hot"],
+			"Ice Level": ["Regular Ice"],
+		});
+
+		expect(summary.summary).toBe("Hot");
+		expect(summary.delta).toBe(0);
+		expect(summary.optionCodes).toEqual(["HT"]);
 	});
 });

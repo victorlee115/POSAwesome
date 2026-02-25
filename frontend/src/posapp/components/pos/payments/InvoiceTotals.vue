@@ -1,109 +1,16 @@
 <template>
-	<v-row v-if="invoice_doc" class="pa-1">
-		<v-col cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="frappe._('Net Total')"
-				class="sleek-field pos-themed-input"
-				:model-value="formatCurrency(invoice_doc.net_total, displayCurrency)"
-				readonly
-				:prefix="currencySymbol()"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-		<v-col cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="frappe._('Tax and Charges')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(invoice_doc.total_taxes_and_charges, displayCurrency)"
-				readonly
-				:prefix="currencySymbol()"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-		<v-col cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="frappe._('Total Amount')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(invoice_doc.total, displayCurrency)"
-				readonly
-				:prefix="currencySymbol()"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-		<v-col cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="diff_label"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="
-					formatCurrency(diff_payment < 0 ? -diff_payment : diff_payment, displayCurrency)
-				"
-				readonly
-				:prefix="currencySymbol()"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-		<v-col cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="frappe._('Discount Amount')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(invoice_doc.discount_amount)"
-				readonly
-				:prefix="currencySymbol(invoice_doc.currency)"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-		<v-col cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="frappe._('Grand Total')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(invoice_doc.grand_total)"
-				readonly
-				:prefix="currencySymbol(invoice_doc.currency)"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-		<v-col v-if="invoice_doc && invoice_doc.rounded_total" cols="6">
-			<v-text-field
-				density="compact"
-				variant="solo"
-				color="primary"
-				:label="frappe._('Rounded Total')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="formatCurrency(invoice_doc.rounded_total)"
-				readonly
-				:prefix="currencySymbol(invoice_doc.currency)"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
-	</v-row>
+	<div v-if="invoice_doc" class="invoice-totals-grid">
+		<div v-for="entry in totalEntries" :key="entry.key" class="invoice-total-item">
+			<span class="invoice-total-label">{{ entry.label }}</span>
+			<span class="invoice-total-value">{{ currencyPrefix }} {{ entry.value }}</span>
+		</div>
+	</div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
 	invoice_doc: Object,
 	displayCurrency: String,
 	diff_payment: Number,
@@ -112,5 +19,81 @@ defineProps({
 	formatCurrency: Function,
 });
 
+const currencyPrefix = computed(() => props.currencySymbol?.(props.invoice_doc?.currency) || "");
+
+const totalEntries = computed(() => {
+	if (!props.invoice_doc) {
+		return [];
+	}
+
+	const entries = [
+		{
+			key: "total",
+			label: frappe._("Total Amount"),
+			value: props.formatCurrency?.(props.invoice_doc.total, props.displayCurrency),
+		},
+		{
+			key: "tax",
+			label: frappe._("Tax and Charges"),
+			value: props.formatCurrency?.(props.invoice_doc.total_taxes_and_charges, props.displayCurrency),
+		},
+		{
+			key: "discount",
+			label: frappe._("Discount Amount"),
+			value: props.formatCurrency?.(props.invoice_doc.discount_amount, props.displayCurrency),
+		},
+		{
+			key: "grand",
+			label: frappe._("Grand Total"),
+			value: props.formatCurrency?.(props.invoice_doc.grand_total, props.displayCurrency),
+		},
+	];
+
+	if (props.invoice_doc.rounded_total) {
+		entries.push({
+			key: "rounded",
+			label: frappe._("Rounded Total"),
+			value: props.formatCurrency?.(props.invoice_doc.rounded_total, props.displayCurrency),
+		});
+	}
+
+	return entries;
+});
+
 const frappe = window.frappe;
 </script>
+
+<style scoped>
+.invoice-totals-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.invoice-total-item {
+	display: grid;
+	gap: 4px;
+	padding: 10px 12px;
+	border-radius: 12px;
+	border: 1px solid #d2dfed;
+	background: #f8fbff;
+}
+
+.invoice-total-label {
+	font-size: 0.8rem;
+	font-weight: 700;
+	color: #5e738a;
+}
+
+.invoice-total-value {
+	font-size: 1.05rem;
+	font-weight: 800;
+	color: #16314e;
+}
+
+@media (max-width: 920px) {
+	.invoice-totals-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+</style>

@@ -1,7 +1,11 @@
 <template>
 	<div
-		class="pos-main-container dynamic-container"
+		class="pos-main-container dynamic-container square-pos-shell"
 		:class="rtlClasses"
+		:data-device-profile="deviceProfile"
+		:data-catalog-render-mode="catalogRenderMode"
+		:data-cart-render-mode="cartRenderMode"
+		:data-payment-layout-mode="paymentLayoutMode"
 		:style="[responsiveStyles, rtlStyles]"
 	>
 		<Drafts></Drafts>
@@ -16,67 +20,36 @@
 			@close="closeOpeningDialog"
 			@register="handleRegisterPosData"
 		></OpeningDialog>
-		<v-row v-show="!dialog" dense class="ma-0 dynamic-main-row">
-			<v-col
-				v-show="activeView === 'items'"
-				xl="5"
-				lg="5"
-				md="5"
-				sm="5"
-				cols="12"
-				class="pos dynamic-col"
-			>
+		<div
+			v-show="!dialog"
+			class="dynamic-main-row square-pos-columns"
+			:class="[
+				`device-${deviceProfile}`,
+				`catalog-mode-${catalogRenderMode}`,
+				`cart-mode-${cartRenderMode}`,
+				`payment-layout-${paymentLayoutMode}`,
+			]"
+		>
+			<section v-show="activeView === 'items'" class="pos dynamic-col square-pane square-pane-left">
 				<ItemsSelector context="pos" />
-			</v-col>
-			<v-col
-				v-show="activeView === 'offers'"
-				xl="5"
-				lg="5"
-				md="5"
-				sm="5"
-				cols="12"
-				class="pos dynamic-col"
-			>
+			</section>
+			<section v-show="activeView === 'offers'" class="pos dynamic-col square-pane square-pane-left">
 				<PosOffers></PosOffers>
-			</v-col>
-			<v-col
-				v-show="activeView === 'coupons'"
-				xl="5"
-				lg="5"
-				md="5"
-				sm="5"
-				cols="12"
-				class="pos dynamic-col"
-			>
+			</section>
+			<section v-show="activeView === 'coupons'" class="pos dynamic-col square-pane square-pane-left">
 				<PosCoupons></PosCoupons>
-			</v-col>
-			<v-col
-				v-show="activeView === 'payment'"
-				xl="5"
-				lg="5"
-				md="5"
-				sm="5"
-				cols="12"
-				class="pos dynamic-col"
-			>
+			</section>
+			<section v-show="activeView === 'payment'" class="pos dynamic-col square-pane square-pane-left">
 				<Payments></Payments>
-			</v-col>
-			<v-col
-				v-show="activeView === 'prep'"
-				xl="5"
-				lg="5"
-				md="5"
-				sm="5"
-				cols="12"
-				class="pos dynamic-col"
-			>
+			</section>
+			<section v-show="activeView === 'prep'" class="pos dynamic-col square-pane square-pane-left">
 				<PrepQueue :pos-profile="posProfile" @back="uiStore.setActiveView('items')" />
-			</v-col>
+			</section>
 
-			<v-col xl="7" lg="7" md="7" sm="7" cols="12" class="pos dynamic-col">
+			<section class="pos dynamic-col square-pane square-pane-cart">
 				<Invoice></Invoice>
-			</v-col>
-		</v-row>
+			</section>
+		</div>
 	</div>
 </template>
 
@@ -275,33 +248,18 @@ export default {
 
 <style scoped>
 .dynamic-container {
-	/* add space for the navbar with better spacing */
-	/*padding-top: calc(25px + var(--dynamic-lg));*/
-	/* Navbar height (25px) + larger spacing */
-	transition: all 0.3s ease;
+	height: 100%;
+	min-height: 0;
 }
 
 .dynamic-main-row {
-	padding: 0;
-	margin: 0;
+	height: 100%;
+	min-height: 0;
 }
 
 .dynamic-col {
-	padding: var(--dynamic-sm);
-	transition: padding 0.3s ease;
-	margin-top: var(--dynamic-sm);
-	/* Add top margin for better separation */
-}
-
-@media (max-width: 768px) {
-	.dynamic-container {
-		padding-top: calc(56px + var(--dynamic-md));
-		/* Consistent navbar height + medium spacing */
-	}
-
-	.dynamic-col {
-		padding: var(--dynamic-xs);
-		margin-top: var(--dynamic-xs);
-	}
+	padding: 0;
+	margin-top: 0;
+	min-height: 0;
 }
 </style>

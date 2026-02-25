@@ -257,6 +257,98 @@ describe("invoiceItemMethods.get_invoice_doc currency conversions", () => {
 	});
 });
 
+describe("invoiceItemMethods.get_invoice_items modifier serialization", () => {
+	it("keeps modifier payload fields for invoice submissions", () => {
+		const context = createInvoiceContext({
+			invoiceType: "Invoice",
+			items: [
+				{
+					item_code: "MTC-YUZU-MATCHA-TONIC",
+					item_name: "Yuzu Matcha Tonic",
+					posa_row_id: "ROW-1",
+					qty: 1,
+					uom: "Nos",
+					conversion_factor: 1,
+					serial_no: "",
+					is_stock_item: 0,
+					discount_percentage: 0,
+					batch_no: "",
+					posa_notes: "",
+					posa_delivery_date: null,
+					rate: 16.7,
+					base_rate: 16.7,
+					price_list_rate: 16.7,
+					base_price_list_rate: 16.7,
+					discount_amount: 0,
+					base_discount_amount: 0,
+					posa_modifiers_json: JSON.stringify({
+						selections: {
+							Size: ["Regular"],
+							"Sugar Level": ["50%"],
+							"Ice Level": ["Regular Ice"],
+							"Add Ons": ["Extra Matcha Shot"],
+						},
+					}),
+					posa_modifier_summary:
+						"Regular / 50% / Regular Ice / Extra Matcha Shot",
+					posa_modifiers_delta: 2.2,
+					posa_prep_status: "Paid",
+					posa_drink_code: "MTC-YUZU-R-S50-I2-EMS",
+				},
+			],
+		});
+
+		const items = invoiceItemMethods.get_invoice_items.call(context);
+		expect(items).toHaveLength(1);
+		expect(items[0].posa_modifiers_json).toContain("Size");
+		expect(items[0].posa_modifier_summary).toContain("Regular");
+		expect(items[0].posa_modifiers_delta).toBeCloseTo(2.2);
+		expect(items[0].posa_prep_status).toBe("Paid");
+		expect(items[0].posa_drink_code).toBe("MTC-YUZU-R-S50-I2-EMS");
+	});
+
+	it("omits modifier payload fields for quotation documents", () => {
+		const context = createInvoiceContext({
+			invoiceType: "Quotation",
+			items: [
+				{
+					item_code: "MTC-MATCHA-LATTE",
+					item_name: "Matcha Latte",
+					posa_row_id: "ROW-2",
+					qty: 1,
+					uom: "Nos",
+					conversion_factor: 1,
+					serial_no: "",
+					is_stock_item: 0,
+					discount_percentage: 0,
+					batch_no: "",
+					posa_notes: "",
+					posa_delivery_date: null,
+					rate: 11.9,
+					base_rate: 11.9,
+					price_list_rate: 11.9,
+					base_price_list_rate: 11.9,
+					discount_amount: 0,
+					base_discount_amount: 0,
+					posa_modifiers_json: '{"selections":{"Size":["Regular"]}}',
+					posa_modifier_summary: "Regular",
+					posa_modifiers_delta: 0,
+					posa_prep_status: "Paid",
+					posa_drink_code: "MTC-MATCHA-R",
+				},
+			],
+		});
+
+		const items = invoiceItemMethods.get_invoice_items.call(context);
+		expect(items).toHaveLength(1);
+		expect("posa_modifiers_json" in items[0]).toBe(false);
+		expect("posa_modifier_summary" in items[0]).toBe(false);
+		expect("posa_modifiers_delta" in items[0]).toBe(false);
+		expect("posa_prep_status" in items[0]).toBe(false);
+		expect("posa_drink_code" in items[0]).toBe(false);
+	});
+});
+
 describe("invoiceItemMethods._applyPricingToLine", () => {
 	beforeEach(() => {
 		applyLocalPricingRules.mockReset();

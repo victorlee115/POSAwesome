@@ -1,80 +1,77 @@
 <template>
-	<v-card class="cards mb-0 mt-3 dynamic-padding resizable" style="resize: vertical; overflow: auto">
-		<v-row no-gutters align="center" justify="center" class="dynamic-spacing-sm">
-			<v-col cols="12" class="mb-2">
-				<v-select
-					:items="itemsGroup"
-					:label="frappe._('Items Group')"
-					density="compact"
-					variant="solo"
-					hide-details
-					:model-value="modelValue"
-					@update:model-value="$emit('update:modelValue', $event)"
-				></v-select>
-			</v-col>
-			<v-col cols="12" class="mb-2" v-if="posProfile.posa_enable_price_list_dropdown !== false">
-				<v-text-field
-					density="compact"
-					variant="solo"
-					color="primary"
-					:label="frappe._('Price List')"
-					hide-details
-					:model-value="activePriceList"
-					readonly
-				></v-text-field>
-			</v-col>
-				<v-col :cols="prepEnabled ? 3 : 4" class="dynamic-margin-xs">
-					<v-btn-toggle
-					:model-value="itemsView"
-					@update:model-value="$emit('update:itemsView', $event)"
-					color="primary"
-					group
-					density="compact"
-					rounded
-					class="view-toggle-btn"
+	<div class="item-action-toolbar-shell">
+		<div class="toolbar-row toolbar-row-fields">
+			<v-select
+				class="toolbar-field items-group-field"
+				:items="itemsGroup"
+				:label="frappe._('Items Group')"
+				density="compact"
+				variant="solo"
+				hide-details
+				:model-value="modelValue"
+				@update:model-value="$emit('update:modelValue', $event)"
+			></v-select>
+			<v-text-field
+				v-if="posProfile.posa_enable_price_list_dropdown !== false"
+				class="toolbar-field price-list-field"
+				density="compact"
+				variant="solo"
+				color="primary"
+				:label="frappe._('Price List')"
+				hide-details
+				:model-value="activePriceList"
+				readonly
+			></v-text-field>
+		</div>
+		<div class="toolbar-row toolbar-row-actions">
+			<div class="view-toggle-btn" role="group" :aria-label="__('Item View')">
+				<v-btn
+					:class="['view-toggle-option', { 'view-toggle-option--active': itemsView === 'list' }]"
+					variant="flat"
+					@click="$emit('update:itemsView', 'list')"
 				>
-					<v-btn size="small" value="list">{{ __("List") }}</v-btn>
-					<v-btn size="small" value="card">{{ __("Card") }}</v-btn>
-				</v-btn-toggle>
-			</v-col>
-				<v-col :cols="prepEnabled ? 3 : 4" class="dynamic-margin-xs">
-					<v-btn
-						size="small"
-						block
-					color="warning"
-					variant="text"
-					@click="$emit('open-offers')"
-					class="action-btn-consistent"
-				>
-					{{ offersCount }} {{ __("Offers") }}
+					{{ __("List") }}
 				</v-btn>
-				</v-col>
-				<v-col :cols="prepEnabled ? 3 : 4" class="dynamic-margin-xs">
-					<v-btn
-						size="small"
-						block
-					color="primary"
-					variant="text"
-					@click="$emit('open-coupons')"
-					class="action-btn-consistent"
+				<v-btn
+					:class="['view-toggle-option', { 'view-toggle-option--active': itemsView === 'card' }]"
+					variant="flat"
+					@click="$emit('update:itemsView', 'card')"
 				>
-						{{ couponsCount }} {{ __("Coupons") }}
-					</v-btn>
-				</v-col>
-				<v-col cols="3" class="dynamic-margin-xs" v-if="prepEnabled">
-					<v-btn
-						size="small"
-						block
-						color="success"
-						variant="text"
-						@click="$emit('open-prep')"
-						class="action-btn-consistent"
-					>
-						{{ __("Prep Queue") }}
-					</v-btn>
-				</v-col>
-			</v-row>
-		</v-card>
+					{{ __("Card") }}
+				</v-btn>
+			</div>
+			<v-btn
+				variant="flat"
+				prepend-icon="mdi-brightness-percent"
+				@click="$emit('open-offers')"
+				class="action-btn-consistent toolbar-chip-btn toolbar-chip-btn--offers"
+			>
+				{{ offersCount }} {{ __("Offers") }}
+			</v-btn>
+			<v-btn
+				variant="flat"
+				prepend-icon="mdi-ticket-percent-outline"
+				@click="$emit('open-coupons')"
+				:class="[
+					'action-btn-consistent',
+					'toolbar-chip-btn',
+					'toolbar-chip-btn--coupons',
+					{ 'toolbar-chip-btn--full': !prepEnabled },
+				]"
+			>
+				{{ couponsCount }} {{ __("Coupons") }}
+			</v-btn>
+			<v-btn
+				v-if="prepEnabled"
+				variant="flat"
+				prepend-icon="mdi-coffee-outline"
+				@click="$emit('open-prep')"
+				class="action-btn-consistent toolbar-chip-btn toolbar-chip-btn--prep"
+			>
+				{{ __("Prep Queue") }}
+			</v-btn>
+		</div>
+	</div>
 </template>
 
 <script setup>
@@ -96,62 +93,108 @@ defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupo
 </script>
 
 <style scoped>
-.action-btn-consistent {
-	height: 40px !important;
-	margin-top: var(--dynamic-xs) !important;
-	padding: var(--dynamic-xs) var(--dynamic-sm) !important;
-	transition: var(--transition-normal) !important;
+.item-action-toolbar-shell {
+	display: grid;
+	grid-template-columns: minmax(0, 1fr);
+	gap: 8px;
 }
 
-.action-btn-consistent:hover {
-	background-color: rgba(var(--v-theme-primary), 0.1) !important;
-	transform: translateY(-1px) !important;
+.toolbar-row {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+	min-width: 0;
+}
+
+.toolbar-row-fields {
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.toolbar-row-actions {
+	display: grid;
+	grid-template-columns: repeat(auto-fit, minmax(146px, 1fr));
+	gap: 8px;
+}
+
+.toolbar-field {
+	width: 100%;
 }
 
 .view-toggle-btn {
-	height: 40px;
-	border: 1px solid rgba(var(--v-theme-on-surface), 0.12);
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 0;
+	min-width: 0;
+	max-width: 100%;
+	background: #ffffff;
+	border: 1px solid #d7e2ee;
+	border-radius: 999px;
+	overflow: hidden;
 }
 
-.dynamic-padding {
-	padding: var(--dynamic-sm);
+.view-toggle-option {
+	min-width: 74px;
+	min-height: 44px;
+	border-radius: 0 !important;
+	text-transform: none;
+	font-weight: 700;
+	letter-spacing: 0.01em;
 }
 
-.dynamic-spacing-sm {
-	padding: var(--dynamic-sm) !important;
+.view-toggle-option :deep(.v-btn__content) {
+	white-space: nowrap;
+	overflow: visible;
+	text-overflow: clip;
 }
 
-.cards {
-	background-color: var(--surface-secondary) !important;
-	margin-top: var(--dynamic-sm) !important;
-	padding: var(--dynamic-sm) !important;
+.view-toggle-option:first-child {
+	border-top-left-radius: 999px !important;
+	border-bottom-left-radius: 999px !important;
 }
 
-@media (max-width: 768px) {
-	.dynamic-padding {
-		padding: var(--dynamic-xs);
+.view-toggle-option:last-child {
+	border-top-right-radius: 999px !important;
+	border-bottom-right-radius: 999px !important;
+}
+
+.view-toggle-option.view-toggle-option--active {
+	background: #dbe7ff !important;
+	color: #1d4ed8 !important;
+}
+
+.toolbar-row-actions .action-btn-consistent {
+	width: 100%;
+	min-width: 0;
+}
+
+.toolbar-row-actions .action-btn-consistent :deep(.v-btn__content) {
+	white-space: nowrap;
+	overflow: visible;
+}
+
+.toolbar-chip-btn--full,
+.toolbar-chip-btn--prep {
+	grid-column: 1 / -1;
+}
+
+@media (max-width: 1240px) {
+	.toolbar-row-actions {
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+	}
+}
+
+@media (max-width: 960px) {
+	.toolbar-row-fields {
+		grid-template-columns: 1fr;
 	}
 
-	.dynamic-spacing-sm {
-		padding: var(--dynamic-xs) !important;
+	.toolbar-row-actions {
+		grid-template-columns: 1fr;
 	}
 
-	.action-btn-consistent {
-		padding: var(--dynamic-xs) !important;
-		font-size: 0.875rem !important;
-	}
-}
-
-@media (max-width: 480px) {
-	.cards {
-		padding: var(--dynamic-xs) !important;
-	}
-}
-
-@media (pointer: coarse) {
-	.action-btn-consistent,
-	.view-toggle-btn {
-		height: 44px !important;
+	.toolbar-chip-btn--full,
+	.toolbar-chip-btn--prep {
+		grid-column: auto;
 	}
 }
 </style>

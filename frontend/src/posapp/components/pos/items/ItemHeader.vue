@@ -80,51 +80,50 @@
 			</v-col>
 			<v-col cols="12" class="dynamic-margin-xs">
 				<div class="settings-container">
-					<v-btn
-						v-if="context === 'purchase'"
-						density="compact"
-						variant="text"
-						color="primary"
-						prepend-icon="mdi-plus"
-						@click="$emit('open-new-item')"
-						class="settings-btn"
-					>
-						{{ __("New Item") }}
-					</v-btn>
-					<v-btn
-						density="compact"
-						variant="text"
-						color="primary"
-						prepend-icon="mdi-cog-outline"
-						@click="$emit('toggle-settings')"
-						class="settings-btn"
-					>
-						{{ __("Settings") }}
-					</v-btn>
-					<v-spacer></v-spacer>
-					<span
-						v-if="syncStatus"
-						class="text-caption text-info font-weight-bold sync-status-label mx-2"
-					>
-						{{ syncStatus }}
-					</span>
-					<span
-						v-if="enableBackgroundSync && !syncStatus"
-						class="text-caption text-medium-emphasis last-sync-label"
-					>
-						{{ __("Last sync:") }} {{ lastSyncTime }}
-					</span>
-					<v-spacer></v-spacer>
-					<v-btn
-						density="compact"
-						variant="text"
-						color="primary"
-						prepend-icon="mdi-refresh"
-						@click="$emit('reload-items')"
-						class="settings-btn"
-					>
-						{{ __("Reload Items") }}
-					</v-btn>
+					<div class="settings-actions">
+						<v-btn
+							v-if="context === 'purchase'"
+							density="compact"
+							variant="text"
+							color="primary"
+							prepend-icon="mdi-plus"
+							@click="$emit('open-new-item')"
+							class="settings-btn"
+						>
+							{{ __("New Item") }}
+						</v-btn>
+						<v-btn
+							density="compact"
+							variant="text"
+							color="primary"
+							prepend-icon="mdi-cog-outline"
+							@click="$emit('toggle-settings')"
+							class="settings-btn"
+						>
+							{{ __("Settings") }}
+						</v-btn>
+						<v-btn
+							density="compact"
+							variant="text"
+							color="primary"
+							prepend-icon="mdi-refresh"
+							@click="$emit('reload-items')"
+							class="settings-btn"
+						>
+							{{ __("Reload Items") }}
+						</v-btn>
+					</div>
+					<div class="settings-meta">
+						<span v-if="syncStatus" class="text-caption text-info font-weight-bold sync-status-label">
+							{{ syncStatus }}
+						</span>
+						<span
+							v-if="enableBackgroundSync && !syncStatus"
+							class="text-caption text-medium-emphasis last-sync-label"
+						>
+							{{ __("Last sync:") }} {{ lastSyncTime }}
+						</span>
+					</div>
 				</div>
 			</v-col>
 		</v-row>
@@ -177,10 +176,6 @@ defineExpose({
 	position: sticky;
 	top: 0;
 	z-index: 5;
-	background: rgb(var(--v-theme-surface));
-	padding: 12px 12px 0 12px;
-	border-bottom: 1px solid rgba(var(--v-theme-on-surface), 0.08);
-	margin-bottom: 0;
 }
 
 .items {
@@ -189,15 +184,28 @@ defineExpose({
 
 .settings-container {
 	display: flex;
-	align-items: center;
+	flex-direction: column;
+	align-items: stretch;
+	gap: 8px;
 	padding: 4px 0;
+}
+
+.settings-actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 8px;
+}
+
+.settings-meta {
+	min-height: 18px;
+	display: flex;
+	align-items: center;
 }
 
 .settings-btn {
 	text-transform: none !important;
-	letter-spacing: normal !important;
-	font-weight: 500 !important;
-	background-color: transparent !important;
+	letter-spacing: 0.01em !important;
+	font-weight: 700 !important;
 }
 
 .last-sync-label {
@@ -207,5 +215,21 @@ defineExpose({
 
 .dynamic-margin-xs {
 	margin-top: 4px;
+}
+
+@media (max-width: 960px) {
+	.settings-container {
+		grid-template-columns: minmax(0, 1fr);
+	}
+
+	.settings-meta {
+		justify-content: flex-start;
+	}
+}
+
+@media (max-width: 760px) {
+	.settings-actions {
+		flex-direction: column;
+	}
 }
 </style>

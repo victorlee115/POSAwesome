@@ -1,70 +1,72 @@
 <template>
-	<v-row v-if="invoice_doc" class="pa-1" dense>
-		<v-col cols="7">
-			<v-text-field
-				variant="solo"
-				color="primary"
-				:label="frappe._('Paid Amount')"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="total_payments_display"
-				readonly
-				:prefix="currencySymbol(invoice_doc.currency)"
-				density="compact"
-				@click="$emit('show-paid-amount')"
-			></v-text-field>
-		</v-col>
-		<v-col cols="5">
-			<v-text-field
-				variant="solo"
-				color="primary"
-				:label="diff_label"
-				class="sleek-field pos-themed-input"
-				hide-details
-				:model-value="diff_payment_display"
-				:prefix="currencySymbol(invoice_doc.currency)"
-				density="compact"
-				@focus="$emit('show-diff-payment')"
-				persistent-placeholder
-			></v-text-field>
-		</v-col>
+	<div v-if="invoice_doc" class="payment-summary-strip">
+		<div class="payment-summary-grid">
+			<button
+				type="button"
+				class="payment-summary-tile"
+				@click="$emit('show-diff-payment')"
+			>
+				<span class="payment-summary-label">{{ frappe._("Amount Due") }}</span>
+				<span class="payment-summary-value">{{ currencyPrefix }} {{ amountDueDisplay }}</span>
+			</button>
 
-		<!-- Paid Change (if applicable) -->
-		<v-col cols="7" v-if="invoice_doc && change_due > 0 && !invoice_doc.is_return">
+			<button
+				type="button"
+				class="payment-summary-tile"
+				@click="$emit('show-paid-amount')"
+			>
+				<span class="payment-summary-label">{{ frappe._("Paid") }}</span>
+				<span class="payment-summary-value">{{ currencyPrefix }} {{ total_payments_display }}</span>
+			</button>
+
+			<button
+				type="button"
+				class="payment-summary-tile"
+				:class="{ 'payment-summary-tile--positive': change_due > 0 }"
+				@click="$emit('show-paid-change')"
+			>
+				<span class="payment-summary-label">{{ frappe._("Change") }}</span>
+				<span class="payment-summary-value">{{ currencyPrefix }} {{ changeDisplay }}</span>
+			</button>
+		</div>
+
+		<div
+			v-if="invoice_doc && change_due > 0 && !invoice_doc.is_return"
+			class="payment-summary-change-grid"
+		>
 			<v-text-field
 				variant="solo"
 				color="primary"
-				:label="frappe._('Paid Change')"
+				:label="frappe._('Cash Change')"
 				class="sleek-field pos-themed-input"
 				:model-value="formatCurrency(paid_change)"
-				:prefix="currencySymbol(invoice_doc.currency)"
-				:rules="paid_change_rules"
+				:prefix="currencyPrefix"
 				density="compact"
+				hide-details
 				readonly
 				type="text"
 				@click="$emit('show-paid-change')"
 			></v-text-field>
-		</v-col>
-
-		<!-- Credit Change (if applicable) -->
-		<v-col cols="5" v-if="invoice_doc && change_due > 0 && !invoice_doc.is_return">
 			<v-text-field
 				variant="solo"
 				color="primary"
 				:label="frappe._('Credit Change')"
 				class="sleek-field pos-themed-input"
 				:model-value="formatCurrency(Math.abs(credit_change))"
-				:prefix="currencySymbol(invoice_doc.currency)"
+				:prefix="currencyPrefix"
 				density="compact"
+				hide-details
 				type="text"
 				@change="$emit('update-credit-change', $event)"
 			></v-text-field>
-		</v-col>
-	</v-row>
+		</div>
+	</div>
 </template>
 
 <script setup>
-defineProps({
+import { computed } from "vue";
+
+const props = defineProps({
 	invoice_doc: Object,
 	total_payments_display: String,
 	diff_payment_display: String,
@@ -79,5 +81,98 @@ defineProps({
 
 defineEmits(["show-paid-amount", "show-diff-payment", "show-paid-change", "update-credit-change"]);
 
+const currencyPrefix = computed(() => props.currencySymbol?.(props.invoice_doc?.currency) || "");
+
+const isDueLabel = computed(() => {
+	const text = (props.diff_label || "").toLowerCase();
+	return text.includes("to be paid") || text.includes("due");
+});
+
+const zeroDisplay = computed(() => props.formatCurrency?.(0) || "0.00");
+
+const amountDueDisplay = computed(() => {
+	if (isDueLabel.value) {
+		return props.diff_payment_display || zeroDisplay.value;
+	}
+	return zeroDisplay.value;
+});
+
+const changeDisplay = computed(() => {
+	if ((props.change_due || 0) > 0) {
+		return props.formatCurrency?.(props.change_due) || props.diff_payment_display || zeroDisplay.value;
+	}
+	if (!isDueLabel.value) {
+		return props.diff_payment_display || zeroDisplay.value;
+	}
+	return zeroDisplay.value;
+});
+
 const frappe = window.frappe;
 </script>
+
+<style scoped>
+.payment-summary-strip {
+	display: grid;
+	gap: 12px;
+}
+
+.payment-summary-grid {
+	display: grid;
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 8px;
+}
+
+.payment-summary-tile {
+	display: grid;
+	gap: 4px;
+	padding: 12px;
+	min-height: 72px;
+	border-radius: 12px;
+	border: 1px solid #bfd0e3;
+	background: #f6f9fd;
+	text-align: left;
+	color: #172f49;
+	cursor: pointer;
+}
+
+.payment-summary-tile:hover,
+.payment-summary-tile:focus-visible {
+	border-color: #8fb2da;
+	background: #eef4fc;
+	outline: none;
+}
+
+.payment-summary-tile--positive {
+	border-color: #95d1ad;
+	background: #edf9f1;
+}
+
+.payment-summary-label {
+	font-size: 0.78rem;
+	font-weight: 700;
+	color: #5a6f86;
+}
+
+.payment-summary-value {
+	font-size: 1.28rem;
+	line-height: 1.2;
+	font-weight: 800;
+	color: #112742;
+	white-space: nowrap;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.payment-summary-change-grid {
+	display: grid;
+	grid-template-columns: repeat(2, minmax(0, 1fr));
+	gap: 8px;
+}
+
+@media (max-width: 900px) {
+	.payment-summary-grid,
+	.payment-summary-change-grid {
+		grid-template-columns: minmax(0, 1fr);
+	}
+}
+</style>

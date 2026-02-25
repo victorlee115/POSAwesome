@@ -25,6 +25,32 @@
 				{{ clearSearchLabel }}
 			</v-btn>
 		</div>
+		<div
+			v-else-if="useSimpleGrid"
+			class="items-card-grid items-card-grid--simple"
+			:style="simpleGridStyle"
+		>
+			<ItemCard
+				v-for="item in displayedItems"
+				:key="item.item_code"
+				:item="item"
+				:pos-profile="posProfile"
+				:context="context"
+				:selected-currency="selectedCurrency"
+				:hide-qty-decimals="hideQtyDecimals"
+				:last-invoice-rate="getLastInvoiceRate(item)"
+				:is-item-highlighted="isItemHighlighted(item)"
+				:currency-symbol="currencySymbol"
+				:format-currency="formatCurrency"
+				:format-number="formatNumber"
+				:rate-precision="ratePrecision"
+				:is-negative="isNegative"
+				:style="simpleCardStyle"
+				@click="handleItemClick"
+				@dragstart="handleDragStart"
+				@dragend="handleDragEnd"
+			/>
+		</div>
 		<RecycleScroller
 			v-else
 			ref="scrollerRef"
@@ -87,6 +113,11 @@ const props = defineProps({
 	cardColumnWidth: { type: Number, default: 0 },
 	cardRowHeight: { type: Number, default: 0 },
 	virtualScrollBuffer: { type: Number, default: 200 },
+	renderMode: {
+		type: String,
+		default: "card-grid",
+		validator: (value) => ["small-menu-grid", "card-grid", "table"].includes(value),
+	},
 	posProfile: { type: Object, default: () => ({}) },
 	context: { type: String, default: "pos" },
 	selectedCurrency: { type: String, default: "" },
@@ -107,6 +138,33 @@ const emit = defineEmits(["select-item", "dragstart", "dragend", "virtual-range-
 
 const showClearButton = computed(() => {
 	return Boolean(props.searchInput) || (props.itemGroup && props.itemGroup !== "ALL");
+});
+
+const useSimpleGrid = computed(() => {
+	// Prefer deterministic CSS grid for tablet catalogs to avoid clipped virtual columns.
+	return props.renderMode === "small-menu-grid" || props.displayedItems.length <= 60;
+});
+
+const simpleColumns = computed(() => {
+	const requested = Number(props.cardColumns || 2);
+	if (requested <= 2) {
+		return 2;
+	}
+	return 3;
+});
+
+const simpleGridStyle = computed(() => {
+	return {
+		gridTemplateColumns: `repeat(${simpleColumns.value}, minmax(0, 1fr))`,
+	};
+});
+
+const simpleCardStyle = computed(() => {
+	const compactHeight = Math.max(216, Math.min(236, Number(props.cardRowHeight || 224)));
+	return {
+		height: `${compactHeight}px`,
+		minHeight: `${compactHeight}px`,
+	};
 });
 
 const handleItemClick = (event, item) => {
@@ -144,18 +202,30 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 </script>
 
 <style scoped>
+.items-card-container {
+	height: 100%;
+	min-height: 0;
+	width: 100%;
+	max-width: 100%;
+	display: flex;
+	flex-direction: column;
+	overflow: hidden;
+}
+
 .item-container {
 	overflow-y: auto;
+	overflow-x: hidden;
 	scrollbar-gutter: stable;
 }
 
 .items-card-grid {
 	display: grid;
-	grid-template-columns: repeat(3, 1fr);
-	gap: 16px;
-	padding: 16px;
-	height: calc(100% - 80px);
+	grid-template-columns: repeat(3, minmax(0, 1fr));
+	gap: 12px;
+	padding: 8px;
+	height: 100%;
 	overflow-y: auto;
+	overflow-x: hidden;
 	scrollbar-width: thin;
 	scrollbar-color: rgba(var(--v-theme-on-surface), 0.2) transparent;
 	contain: layout style;
@@ -163,9 +233,18 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 	transform: translate3d(0, 0, 0);
 }
 
+.items-card-grid--simple {
+	align-content: start;
+}
+
 .virtual-scroller {
-	height: calc(100% - 80px);
+	height: 100%;
+	flex: 1 1 auto;
+	min-height: 0;
+	width: 100%;
+	max-width: 100%;
 	overflow-y: auto;
+	overflow-x: hidden;
 	position: relative;
 }
 
@@ -192,7 +271,7 @@ defineExpose({ scrollToItem, getScrollerElement, scrollerRef });
 }
 
 .virtual-scroller :deep(.items-virtual-list) {
-	padding: 16px;
+	padding: 8px;
 	contain: layout style;
 	box-sizing: border-box;
 }

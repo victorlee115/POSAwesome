@@ -139,7 +139,7 @@ def _build_profile_payload(profile_doc):
             if option.get("is_default"):
                 defaults.setdefault(group_name, []).append(option.get("value"))
 
-        if not defaults.get(group_name) and options:
+        if group.get("required") and not defaults.get(group_name) and options:
             defaults[group_name] = [options[0].get("value")]
 
         groups.append(group)
@@ -211,33 +211,42 @@ def _validate_selection(profile_payload: dict[str, Any], item_payload: dict[str,
     selected_option_codes: list[str] = []
     selected_option_labels: list[str] = []
     delta_total = 0.0
+    normalized_selected: dict[str, list[str]] = {}
 
     for group in profile_payload.get("groups", []):
         group_name = group.get("name")
         if not group_name:
             continue
 
-        selected_values = selected.get(group_name, [])
-        available_options = [
-            option
-            for option in group.get("options", [])
-            if _check_dependencies(selected, option)
-        ]
+        selected_values = [value for value in (selected.get(group_name, []) or []) if value]
+        all_options = group.get("options", []) or []
+        all_option_values = {option.get("value") for option in all_options if option.get("value")}
+        available_options = [option for option in all_options if _check_dependencies(selected, option)]
         option_by_value = {option.get("value"): option for option in available_options}
+        available_option_values = set(option_by_value.keys())
 
-        if group.get("required") and not selected_values:
-            errors.append(_("Missing required modifier group: {0}").format(group_name))
-            continue
+        unknown_values = [value for value in selected_values if value not in all_option_values]
+        for unknown in unknown_values:
+            errors.append(_("Option {0} is not valid for group {1}").format(unknown, group_name))
 
-        if not group.get("allow_multiple") and len(selected_values) > 1:
+        # Drop stale dependency-mismatched selections (e.g. Ice Level after switching to Hot).
+        effective_selected_values = [
+            value for value in selected_values if value in available_option_values
+        ]
+
+        if not group.get("allow_multiple") and len(effective_selected_values) > 1:
             errors.append(_("Group {0} does not allow multiple selections").format(group_name))
 
-        for selected_value in selected_values:
+        # Required groups are enforced only when they have options visible in current dependency context.
+        if group.get("required") and available_options and not effective_selected_values:
+            errors.append(_("Missing required modifier group: {0}").format(group_name))
+
+        if effective_selected_values:
+            normalized_selected[group_name] = effective_selected_values
+
+        for selected_value in effective_selected_values:
             option = option_by_value.get(selected_value)
             if not option:
-                errors.append(
-                    _("Option {0} is not valid for group {1}").format(selected_value, group_name)
-                )
                 continue
 
             delta_total += flt(option.get("price_delta"))
@@ -247,7 +256,7 @@ def _validate_selection(profile_payload: dict[str, Any], item_payload: dict[str,
 
     return {
         "errors": errors,
-        "selected": selected,
+        "selected": normalized_selected,
         "delta_total": delta_total,
         "summary": " / ".join(selected_option_labels),
         "option_codes": selected_option_codes,

@@ -1,13 +1,12 @@
 <template>
-	<v-row dense>
+	<v-row dense class="invoice-actions-grid">
 		<v-col cols="6">
 			<v-btn
 				block
-				color="accent"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-content-save"
 				@click="$emit('save-and-clear')"
-				class="summary-btn"
+				class="summary-btn summary-btn-neutral"
 				:loading="saveLoading"
 			>
 				{{ __("Save & Clear") }}
@@ -16,11 +15,10 @@
 		<v-col cols="6">
 			<v-btn
 				block
-				color="warning"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-file-document"
 				@click="$emit('load-drafts')"
-				class="white-text-btn summary-btn"
+				class="summary-btn summary-btn-neutral"
 				:loading="loadDraftsLoading"
 			>
 				{{ __("Load Drafts") }}
@@ -29,11 +27,10 @@
 		<v-col cols="6" v-if="pos_profile.custom_allow_select_sales_order == 1">
 			<v-btn
 				block
-				color="info"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-book-search"
 				@click="$emit('select-order')"
-				class="summary-btn"
+				class="summary-btn summary-btn-neutral"
 				:loading="selectOrderLoading"
 			>
 				{{ __("Select S.O") }}
@@ -42,11 +39,10 @@
 		<v-col cols="6">
 			<v-btn
 				block
-				color="error"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-close-circle"
 				@click="$emit('cancel-sale')"
-				class="summary-btn"
+				class="summary-btn summary-btn-danger"
 				:loading="cancelLoading"
 			>
 				{{ __("Cancel Sale") }}
@@ -56,11 +52,10 @@
 		<v-col cols="6" v-if="pos_profile.posa_allow_return == 1">
 			<v-btn
 				block
-				color="secondary"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-backup-restore"
 				@click="$emit('open-returns')"
-				class="summary-btn"
+				class="summary-btn summary-btn-neutral"
 				:loading="returnsLoading"
 			>
 				{{ __("Sales Return") }}
@@ -69,11 +64,10 @@
 		<v-col cols="6" v-if="pos_profile.posa_allow_print_draft_invoices">
 			<v-btn
 				block
-				color="primary"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-printer"
 				@click="$emit('print-draft')"
-				class="summary-btn"
+				class="summary-btn summary-btn-neutral"
 				:loading="printLoading"
 			>
 				{{ __("Print Draft") }}
@@ -82,11 +76,10 @@
 		<v-col cols="6">
 			<v-btn
 				block
-				color="info"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-tag"
 				@click="$emit('apply-offers')"
-				class="summary-btn"
+				class="summary-btn summary-btn-accent"
 				:loading="applyOffersLoading"
 			>
 				{{ __("Apply Offers") }}
@@ -95,11 +88,10 @@
 		<v-col cols="6" v-if="showCustomerDisplayButton">
 			<v-btn
 				block
-				color="indigo"
-				theme="dark"
+				variant="flat"
 				prepend-icon="mdi-monitor"
 				@click="$emit('open-customer-display')"
-				class="summary-btn"
+				class="summary-btn summary-btn-neutral"
 				:loading="customerDisplayLoading"
 			>
 				{{ __("Customer Screen") }}
@@ -108,8 +100,7 @@
 		<v-col cols="12">
 			<v-btn
 				block
-				color="success"
-				theme="dark"
+				variant="flat"
 				size="large"
 				prepend-icon="mdi-credit-card"
 				@click="$emit('show-payment')"
@@ -162,85 +153,7 @@ const showCustomerDisplayButton = computed(() =>
 </script>
 
 <style scoped>
-.white-text-btn {
-	color: var(--pos-text-primary) !important;
-}
-
-.white-text-btn :deep(.v-btn__content) {
-	color: var(--pos-text-primary) !important;
-}
-
-/* Enhanced button styling with better performance */
-.summary-btn {
-	transition: all 0.2s ease !important;
-	position: relative;
-	overflow: hidden;
-}
-
-.summary-btn :deep(.v-btn__content) {
-	white-space: normal !important;
-	transition: all 0.2s ease;
-}
-
-.summary-btn:hover {
-	transform: translateY(-1px);
-	box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15) !important;
-}
-
-.summary-btn:active {
-	transform: translateY(0);
-}
-
-/* Special styling for the PAY button */
-.pay-btn {
-	font-weight: 600 !important;
-	font-size: 1.1rem !important;
-	background: linear-gradient(135deg, #4caf50, #45a049) !important;
-	box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3) !important;
-}
-
-.pay-btn:hover {
-	background: linear-gradient(135deg, #45a049, #3d8b40) !important;
-	box-shadow: 0 6px 16px rgba(76, 175, 80, 0.4) !important;
-	transform: translateY(-2px);
-}
-
-/* Responsive optimizations */
-@media (max-width: 768px) {
-	.summary-btn {
-		font-size: 0.875rem !important;
-		padding: 8px 12px !important;
-	}
-
-	.pay-btn {
-		font-size: 1rem !important;
-	}
-}
-
-@media (max-width: 480px) {
-	.summary-btn {
-		font-size: 0.8rem !important;
-		padding: 6px 8px !important;
-	}
-
-	.pay-btn {
-		font-size: 0.95rem !important;
-	}
-}
-
-/* Loading state animations */
-.summary-btn:deep(.v-btn__loader) {
-	opacity: 0.8;
-}
-
-/* Dark theme enhancements */
-:deep([data-theme="dark"]) .summary-btn,
-:deep(.v-theme--dark) .summary-btn {
-	box-shadow: 0 2px 8px rgba(0, 0, 0, 0.3) !important;
-}
-
-:deep([data-theme="dark"]) .summary-btn:hover,
-:deep(.v-theme--dark) .summary-btn:hover {
-	box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4) !important;
+.invoice-actions-grid {
+	row-gap: 8px;
 }
 </style>

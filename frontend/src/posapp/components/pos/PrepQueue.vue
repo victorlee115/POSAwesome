@@ -89,16 +89,24 @@
 				</template>
 			</v-data-table>
 		</v-card-text>
+		<CupReprintDialog
+			v-model="reprintDialogVisible"
+			:labels="reprintCandidates"
+			@print="handleDialogReprint"
+		/>
 	</v-card>
 </template>
 
 <script setup lang="ts">
 import { onBeforeUnmount, onMounted, ref, watch } from "vue";
 
-import matchaService from "../../services/matchaService";
+import CupReprintDialog from "./CupReprintDialog.vue";
+import matchaService, { type CupLabelPayloadItem } from "../../services/matchaService";
+import { getCupPrinterConfig, printSingleCup, type CupLabelJob } from "../../services/cupLabelService";
 import { normalizeModifierSelections } from "../../utils/modifierUtils";
 
 const __ = (window as any).__;
+const frappe = (window as any).frappe;
 
 const props = defineProps<{
 	posProfile?: any;
@@ -110,6 +118,9 @@ defineEmits<{
 const loading = ref(false);
 const rows = ref<any[]>([]);
 const statusFilter = ref("");
+const reprintDialogVisible = ref(false);
+const reprintCandidates = ref<CupLabelPayloadItem[]>([]);
+const reprintInvoice = ref<any>(null);
 let pollingTimer: ReturnType<typeof setInterval> | null = null;
 
 type PrepQueueHeader = {
@@ -209,54 +220,119 @@ const updateStatus = async (row: any, status: string) => {
 	}
 };
 
-const buildLabelHtml = (invoice: any, label: any) => {
-	return `
-		<!doctype html>
-		<html>
-			<head>
-				<meta charset="utf-8" />
-				<title>Label ${label.queue_token}</title>
-				<style>
-					body { font-family: Arial, sans-serif; padding: 8px; margin: 0; }
-					.label { width: 70mm; border: 1px dashed #999; padding: 8px; border-radius: 6px; }
-					.token { font-size: 20px; font-weight: 700; margin-bottom: 4px; }
-					.item { font-size: 16px; font-weight: 600; margin-bottom: 4px; }
-					.meta { font-size: 12px; color: #333; margin-bottom: 2px; }
-				</style>
-			</head>
-			<body>
-				<div class="label">
-					<div class="token">${label.queue_token}</div>
-					<div class="item">${label.drink_code} - ${label.item_name}</div>
-					<div class="meta">Qty: ${label.qty}</div>
-					<div class="meta">${label.modifiers || "No modifiers"}</div>
-					<div class="meta">${invoice.name} / ${invoice.posting_time || ""}</div>
-				</div>
-					<script>window.print();<\/script>
-			</body>
-		</html>
-	`;
+const notify = (message: string, indicator: "green" | "orange" | "red" | "blue" = "blue") => {
+	if (frappe?.show_alert) {
+		frappe.show_alert({ message, indicator }, 5);
+		return;
+	}
+	console.info(message);
+};
+
+const buildJobFromPayload = (invoice: any, label: CupLabelPayloadItem): CupLabelJob => {
+	const orderToken = String(label.order_token || invoice?.order_token || "").trim();
+	const labelId = String(
+		label.label_id ||
+			`${invoice?.name || label.invoice_name || "TEMP"}|${label.line_id || "LINE"}|${label.line_cup_index || 1}`,
+	).trim();
+	return {
+		labelId,
+		invoiceName: String(invoice?.name || label.invoice_name || "").trim(),
+		lineId: String(label.line_id || "").trim(),
+		lineIdx: Number(label.line_idx || 0),
+		lineCupIndex: Number(label.line_cup_index || 1),
+		lineCupTotal: Number(label.line_cup_total || 1),
+		orderSequence: Number(label.order_sequence || 1),
+		orderSequenceTotal: Number(label.order_sequence_total || 1),
+		orderToken,
+		cupName: String(label.cup_customer_name || invoice?.cup_customer_name || "").trim(),
+		drinkName: String(label.drink_name || label.item_name || "").trim(),
+		modifiers: String(label.modifiers_compact || label.modifiers || "").trim(),
+		alerts: String(label.alerts || "").trim(),
+		qrPayload: `${orderToken}|${labelId}`,
+	};
+};
+
+const logReprintEvent = async (
+	invoiceName: string,
+	lineId: string,
+	labelId: string,
+	result: string,
+) => {
+	try {
+		await matchaService.logCupLabelReprint({
+			invoice_name: invoiceName,
+			line_id: lineId,
+			label_id: labelId,
+			result,
+		});
+	} catch (_error) {
+		// Logging errors should never block reprint flow.
+	}
+};
+
+const printPayloadLabel = async (invoice: any, label: CupLabelPayloadItem) => {
+	const printer = getCupPrinterConfig(props.posProfile || {});
+	if (!printer.enabled) {
+		notify(__("Cup labels are disabled in POS Profile"), "orange");
+		return;
+	}
+
+	const job = buildJobFromPayload(invoice, label);
+	const result = printSingleCup(job, printer);
+	const failure = result.failures[0]?.reason || "";
+	if (result.ok) {
+		notify(__("Cup label printed"), "green");
+	} else {
+		notify(failure || __("Failed to print cup label"), "orange");
+	}
+
+	await logReprintEvent(job.invoiceName, job.lineId, job.labelId, result.ok ? "sent" : `failed:${failure}`);
 };
 
 const printLabel = async (row: any) => {
 	try {
 		const payload = await matchaService.getLabelPayload(row.invoice_name);
 		const invoice = payload?.invoice;
-		const labels = payload?.labels || [];
-		const label = labels.find((entry: any) => entry.line_id === row.line_id) || labels[0];
-		if (!invoice || !label) {
+		const labels = Array.isArray(payload?.labels) ? payload.labels : [];
+		if (!invoice || !labels.length) {
 			return;
 		}
-		const popup = window.open("", "_blank", "width=420,height=600");
-		if (!popup) {
+
+		const lineLabels = labels
+			.filter((entry) => String(entry?.line_id || "") === String(row?.line_id || ""))
+			.sort((a, b) => Number(a?.order_sequence || 0) - Number(b?.order_sequence || 0));
+		if (!lineLabels.length) {
+			notify(__("No cup labels found for selected line"), "orange");
 			return;
 		}
-		popup.document.open();
-		popup.document.write(buildLabelHtml(invoice, label));
-		popup.document.close();
+
+		const candidates = lineLabels;
+		if (!candidates.length) {
+			return;
+		}
+
+		if (candidates.length === 1) {
+			const onlyLabel = candidates[0];
+			if (!onlyLabel) {
+				return;
+			}
+			await printPayloadLabel(invoice, onlyLabel);
+			return;
+		}
+
+		reprintInvoice.value = invoice;
+		reprintCandidates.value = candidates;
+		reprintDialogVisible.value = true;
 	} catch (error) {
 		console.error("Failed to print label", error);
 	}
+};
+
+const handleDialogReprint = async (label: CupLabelPayloadItem) => {
+	const invoice = reprintInvoice.value;
+	reprintDialogVisible.value = false;
+	if (!invoice || !label) return;
+	await printPayloadLabel(invoice, label);
 };
 
 watch(statusFilter, () => {

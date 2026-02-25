@@ -2,6 +2,17 @@ import { expect, test, type Page } from "@playwright/test";
 
 const POS_PATH = process.env.POSA_SMOKE_PATH || "/app/posapp";
 
+function getSmokeCredentials() {
+	const username =
+		process.env.POSA_SMOKE_USER || process.env.FRAPPE_ADMIN_USER || "Administrator";
+	const password =
+		process.env.POSA_SMOKE_PASSWORD || process.env.FRAPPE_ADMIN_PASSWORD || "admin";
+	if (!username || !password) {
+		return null;
+	}
+	return { username, password };
+}
+
 function isBenignErrorMessage(message: string): boolean {
 	const normalized = message.toLowerCase();
 	return (
@@ -13,31 +24,33 @@ function isBenignErrorMessage(message: string): boolean {
 }
 
 async function loginIfCredentialsProvided(page: Page) {
-	const username = process.env.POSA_SMOKE_USER;
-	const password = process.env.POSA_SMOKE_PASSWORD;
-
-	if (!username || !password) {
+	const credentials = getSmokeCredentials();
+	if (!credentials) {
 		return;
 	}
 
 	// Prefer API login for cross-version stability of login forms/selectors.
-	const response = await page.request.post("/api/method/login", {
+	await page.request.post("/api/method/login", {
 		form: {
-			usr: username,
-			pwd: password,
+			usr: credentials.username,
+			pwd: credentials.password,
 		},
 	});
-	if (response.ok()) {
+}
+
+async function loginViaFormIfNeeded(page: Page) {
+	const credentials = getSmokeCredentials();
+	if (!credentials) {
 		return;
 	}
 
 	await page.goto("/login", { waitUntil: "networkidle" });
 
 	const userInput = page.locator(
-		'input[name="login_email"], input#login_email',
+		'input[name="login_email"], input#login_email, input[name="usr"]',
 	);
 	const passInput = page.locator(
-		'input[name="login_password"], input#login_password',
+		'input[name="login_password"], input#login_password, input[name="pwd"]',
 	);
 	const loginButton = page.locator(
 		'button:has-text("Login"), button:has-text("Log In")',
@@ -47,10 +60,27 @@ async function loginIfCredentialsProvided(page: Page) {
 		return;
 	}
 
-	await userInput.first().fill(username);
-	await passInput.first().fill(password);
+	await userInput.first().fill(credentials.username);
+	await passInput.first().fill(credentials.password);
 	await loginButton.first().click();
 	await page.waitForLoadState("networkidle");
+}
+
+async function openPosRouteWithAuth(page: Page) {
+	await loginIfCredentialsProvided(page);
+	await page.goto(POS_PATH, { waitUntil: "networkidle" });
+
+	if (page.url().includes("/login")) {
+		await loginViaFormIfNeeded(page);
+		await page.goto(POS_PATH, { waitUntil: "networkidle" });
+	}
+
+	if (page.url().includes("/login")) {
+		const credentials = getSmokeCredentials();
+		throw new Error(
+			`Smoke login failed for POS route ${POS_PATH}. Check credentials and site auth state. User: ${credentials?.username || "unset"}`,
+		);
+	}
 }
 
 test("POS app smoke route has no uncaught global errors", async ({ page }) => {
@@ -79,8 +109,7 @@ test("POS app smoke route has no uncaught global errors", async ({ page }) => {
 		}
 	});
 
-	await loginIfCredentialsProvided(page);
-	await page.goto(POS_PATH, { waitUntil: "networkidle" });
+	await openPosRouteWithAuth(page);
 
 	await expect(page).toHaveURL(
 		new RegExp("/(app/(posapp|point-of-sale)|desk/(posapp|point-of-sale))"),

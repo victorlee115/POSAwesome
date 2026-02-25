@@ -5,7 +5,6 @@
 			:headers="headers"
 			:items="displayedItems"
 			class="sleek-data-table overflow-y-auto"
-			:style="{ height: 'calc(100% - 80px)' }"
 			item-key="item_code"
 			fixed-header
 			height="100%"

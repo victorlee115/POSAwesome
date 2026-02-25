@@ -114,6 +114,9 @@ def get_prep_queue(
             "ifnull(item.posa_prep_status, 'Paid') in %(statuses)s",
         ]
 
+        if frappe.db.has_column(item_doctype, "posa_is_prep_item"):
+            conditions.append("ifnull(item.posa_is_prep_item, 0) = 1")
+
         if require_is_pos:
             conditions.append("ifnull(parent.is_pos, 0) = 1")
 

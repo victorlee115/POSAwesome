@@ -3,13 +3,123 @@
 		ref="tableContainer"
 		class="my-0 py-0 overflow-y-auto posa-items-table-container posa-responsive-table-container pos-themed-card"
 		:style="containerStyles"
-		:class="containerClasses"
+		:class="[containerClasses, { 'tablet-line-list-mode': isTabletLineList }]"
 		@dragover="onDragOverFromSelector($event)"
 		@drop="onDropFromSelector($event)"
 		@dragenter="onDragEnterFromSelector"
 		@dragleave="onDragLeaveFromSelector"
 	>
+		<div v-if="isTabletLineList" class="posa-cart-line-list">
+			<div v-if="filteredCartItems.length === 0" class="posa-cart-empty-state">
+				<v-icon icon="mdi-cart-outline" size="38" class="mb-2" />
+				<div class="posa-cart-empty-title">{{ __("Cart is empty") }}</div>
+				<div class="posa-cart-empty-subtitle">
+					{{ __("Tap a drink on the left to start this order") }}
+				</div>
+			</div>
+			<article
+				v-for="item in filteredCartItems"
+				:key="item.posa_row_id || item.item_code"
+				class="posa-cart-line-card"
+			>
+				<header class="posa-cart-line-card__header">
+					<div class="posa-cart-line-card__title-wrap">
+						<div class="posa-cart-line-card__title">{{ item.item_name }}</div>
+						<div class="posa-cart-line-card__amount">
+							{{ currencySymbol(displayCurrency) }} {{ memoizedFormatCurrency(item.qty * item.rate) }}
+						</div>
+					</div>
+					<div class="posa-cart-line-card__meta">
+						<v-chip
+							v-if="item.posa_drink_code"
+							size="x-small"
+							variant="outlined"
+							color="primary"
+							class="posa-meta-chip"
+						>
+							{{ item.posa_drink_code }}
+						</v-chip>
+						<v-chip
+							v-if="item.posa_prep_status"
+							size="x-small"
+							variant="tonal"
+							color="secondary"
+							class="posa-meta-chip posa-meta-chip--interactive"
+							@click.stop="cyclePrepStatus(item)"
+						>
+							{{ __("Prep") }}: {{ item.posa_prep_status }}
+						</v-chip>
+					</div>
+				</header>
+
+				<div v-if="getModifierDetails(item).length" class="posa-cart-line-card__modifiers">
+					<div
+						v-for="entry in getModifierDetails(item)"
+						:key="`${item.posa_row_id || item.item_code}-${entry.label}`"
+						class="posa-cart-line-card__modifier-row"
+					>
+						<span class="posa-cart-line-card__modifier-label">{{ entry.label }}:</span>
+						<span class="posa-cart-line-card__modifier-value">{{ entry.value }}</span>
+					</div>
+				</div>
+
+				<footer class="posa-cart-line-card__footer">
+					<div class="posa-cart-table__qty-counter" :class="{ 'rtl-layout': isRtl }">
+						<v-btn
+							:disabled="isMinusDisabled(item)"
+							size="small"
+							variant="flat"
+							class="posa-cart-table__qty-btn posa-cart-table__qty-btn--minus"
+							@click.stop="handleMinusClick(item)"
+							:aria-label="__('Decrease quantity')"
+						>
+							<v-icon size="small">mdi-minus</v-icon>
+						</v-btn>
+						<div
+							class="posa-cart-table__qty-display amount-value"
+							:title="memoizedFormatFloat(item.qty, hide_qty_decimals ? 0 : undefined)"
+						>
+							{{ memoizedFormatFloat(item.qty, hide_qty_decimals ? 0 : undefined) }}
+						</div>
+						<v-btn
+							:disabled="isPlusDisabled(item)"
+							size="small"
+							variant="flat"
+							class="posa-cart-table__qty-btn posa-cart-table__qty-btn--plus"
+							@click.stop="addOne(item)"
+							:aria-label="__('Increase quantity')"
+						>
+							<v-icon size="small">mdi-plus</v-icon>
+						</v-btn>
+					</div>
+					<div class="posa-cart-line-card__actions">
+						<v-btn
+							size="small"
+							variant="outlined"
+							prepend-icon="mdi-tune-variant"
+							class="posa-cart-line-action-btn"
+							@click.stop="requestModifierEdit(item)"
+						>
+							{{ __("Edit Modifiers") }}
+						</v-btn>
+						<v-btn
+							size="small"
+							variant="tonal"
+							color="error"
+							prepend-icon="mdi-delete-outline"
+							class="posa-cart-line-action-btn"
+							:disabled="!!item.posa_is_replace"
+							@click.stop="removeItem(item)"
+						>
+							{{ __("Remove") }}
+						</v-btn>
+					</div>
+				</footer>
+			</article>
+		</div>
+
 		<v-data-table-virtual
+			v-else
 			:headers="responsiveHeaders"
 			:items="items"
 			:expanded="expanded"
@@ -31,6 +141,16 @@
 			:search="itemSearch"
 			:custom-filter="customItemFilter"
 		>
+			<template v-slot:no-data>
+				<div class="posa-cart-empty-state">
+					<v-icon icon="mdi-cart-outline" size="38" class="mb-2" />
+					<div class="posa-cart-empty-title">{{ __("Cart is empty") }}</div>
+					<div class="posa-cart-empty-subtitle">
+						{{ __("Tap a drink on the left to start this order") }}
+					</div>
+				</div>
+			</template>
+
 			<template v-slot:item="{ item, toggleExpand, internalItem }">
 				<CartItemRow
 					:item="item"
@@ -44,23 +164,26 @@
 					:isNumber="isNumber"
 					:isNegative="memoizedIsNegative"
 					:hideQtyDecimals="hide_qty_decimals"
-					:isRTL="isRtl"
-					:showUom="isColumnVisible('uom')"
-					:showPriceListRate="isColumnVisible('price_list_rate')"
-					:showDiscountPercent="isColumnVisible('discount_percentage')"
-					:showDiscountAmount="isColumnVisible('discount_amount')"
-					:showOffer="isColumnVisible('posa_is_offer')"
-					@update-qty="handleQtyUpdate"
+						:isRTL="isRtl"
+						:showUom="isColumnVisible('uom')"
+						:showPriceListRate="isColumnVisible('price_list_rate')"
+						:showDiscountPercent="isColumnVisible('discount_value')"
+						:showDiscountAmount="isColumnVisible('discount_amount')"
+						:showOffer="isColumnVisible('posa_is_offer')"
+						:showRate="isColumnVisible('rate')"
+						:showActions="isColumnVisible('actions')"
+						@update-qty="handleQtyUpdate"
 					@minus-click="handleMinusClick"
 					@add-one="addOne"
 					@calc-uom="calcUom"
 					@update-rate="handleRateUpdate"
 					@update-discount-percent="handleDiscountPercentUpdate"
-					@update-discount-amount="handleDiscountAmountUpdate"
-					@update-prep-status="handlePrepStatusUpdate"
-					@open-name-dialog="openNameDialog"
-					@reset-item-name="resetItemName"
-					@toggle-offer="toggleOffer"
+						@update-discount-amount="handleDiscountAmountUpdate"
+						@update-prep-status="handlePrepStatusUpdate"
+						@edit-modifiers="requestModifierEdit(item)"
+						@open-name-dialog="openNameDialog"
+						@reset-item-name="resetItemName"
+						@toggle-offer="toggleOffer"
 					@remove-item="removeItem"
 					@click="handleRowClick($event, item, toggleExpand, internalItem)"
 				/>
@@ -132,6 +255,7 @@ import { useItemsTableResponsive } from "../../../composables/pos/items/useItems
 import { useItemsTableMerge } from "../../../composables/pos/items/useItemsTableMerge";
 import { useItemsTableNameEdit } from "../../../composables/pos/items/useItemsTableNameEdit";
 import { useFormatters } from "../../../composables/core/useFormatters";
+import { useResponsive, type CartRenderMode, type PosDeviceProfile } from "../../../composables/core/useResponsive";
 import { useRtl } from "../../../composables/core/useRtl";
 import "./items-table-styles.css";
 
@@ -139,6 +263,8 @@ import "./items-table-styles.css";
 declare const __: (_str: string, _args?: any[]) => string;
 
 interface Props {
+	deviceProfile?: PosDeviceProfile;
+	cartRenderMode?: CartRenderMode;
 	headers?: any[];
 	expanded?: any[];
 	itemsPerPage?: number;
@@ -177,12 +303,14 @@ const emit = defineEmits<{
 	"update:expanded": [val: any[]];
 	"show-drop-feedback": [val: boolean];
 	"item-dropped": [val: boolean];
+	"edit-modifiers": [rowId: string];
 }>();
 
 const { proxy } = getCurrentInstance() as any;
 const eventBus = proxy?.eventBus;
 const invoiceStore = useInvoiceStore();
 const tableContainer = ref<HTMLElement | null>(null);
+const responsiveProfile = useResponsive();
 
 // Composables
 const { customItemFilter } = useItemsTableSearch();
@@ -203,6 +331,18 @@ const nameEdit = useItemsTableNameEdit();
 // Computed
 const items = computed(() => invoiceStore.items);
 const invoice_doc = computed(() => invoiceStore.invoiceDoc || {});
+const effectiveDeviceProfile = computed<PosDeviceProfile>(() => {
+	return props.deviceProfile || responsiveProfile.deviceProfile.value;
+});
+const effectiveCartRenderMode = computed<CartRenderMode>(() => {
+	return props.cartRenderMode || responsiveProfile.cartRenderMode.value;
+});
+const isTabletLineList = computed(() => {
+	return (
+		effectiveDeviceProfile.value === "tablet_landscape_compact" &&
+		effectiveCartRenderMode.value === "tablet-line-list"
+	);
+});
 
 const memoizedIsNegative = computed(() => {
 	return (value: any) => {
@@ -241,6 +381,26 @@ const virtualScrollConfig = computed(() => {
 const hide_qty_decimals = computed(() => {
 	const opts = loadItemSelectorSettings();
 	return !!opts?.hide_qty_decimals;
+});
+
+const filteredCartItems = computed(() => {
+	const term = String(props.itemSearch || "").trim().toLowerCase();
+	if (!term) {
+		return items.value;
+	}
+
+	return items.value.filter((item: any) => {
+		const searchable = [
+			item?.item_name,
+			item?.item_code,
+			item?.posa_modifier_summary,
+			item?.posa_drink_code,
+			item?.posa_prep_status,
+		]
+			.map((value) => String(value || "").toLowerCase())
+			.join(" ");
+		return searchable.includes(term);
+	});
 });
 
 // Watchers
@@ -315,6 +475,85 @@ const handleDiscountAmountUpdate = (item: any, newDiscount: any) => {
 
 const handlePrepStatusUpdate = (item: any, status: string) => {
 	item.posa_prep_status = status || "Paid";
+};
+
+const cyclePrepStatus = (item: any) => {
+	const statuses = ["Paid", "In Prep", "Ready", "Collected"];
+	const current = String(item?.posa_prep_status || "Paid");
+	const index = statuses.indexOf(current);
+	const nextStatus = statuses[(index + 1) % statuses.length] ?? "Paid";
+	handlePrepStatusUpdate(item, nextStatus);
+};
+
+const requestModifierEdit = (item: any) => {
+	const rowId = String(item?.posa_row_id || "");
+	emit("edit-modifiers", rowId);
+	eventBus?.emit("edit-line-modifiers", { item, rowId });
+};
+
+const isMinusDisabled = (item: any) => {
+	return (
+		!!item?.posa_is_replace ||
+		(!!props.isReturnInvoice &&
+			(item?.is_free_item || item?.posa_is_offer || item?.posa_is_replace))
+	);
+};
+
+const isPlusDisabled = (item: any) => {
+	return (
+		!!item?.posa_is_replace ||
+		!!item?.disable_increment ||
+		(!!props.isReturnInvoice &&
+			(item?.is_free_item || item?.posa_is_offer || item?.posa_is_replace))
+	);
+};
+
+const getModifierDetails = (item: any) => {
+	const raw = item?.posa_modifiers_json;
+	const normalized: Array<{ label: string; value: string }> = [];
+	if (!raw) {
+		return normalized;
+	}
+
+	try {
+		const parsed = typeof raw === "string" && raw.trim() ? JSON.parse(raw) : raw;
+		const selections =
+			parsed && typeof parsed === "object" && parsed.selections && typeof parsed.selections === "object"
+				? parsed.selections
+				: parsed;
+		if (!selections || typeof selections !== "object") {
+			return normalized;
+		}
+
+		Object.entries(selections as Record<string, any>).forEach(([group, values]) => {
+			const list = Array.isArray(values) ? values : values != null ? [values] : [];
+			const cleaned = list
+				.map((entry) => {
+					if (entry && typeof entry === "object") {
+						return String(
+							(entry as any).label || (entry as any).value || (entry as any).option_value || "",
+						).trim();
+					}
+					return String(entry || "").trim();
+				})
+				.filter(Boolean);
+			if (cleaned.length) {
+				normalized.push({
+					label: String(group || "").trim(),
+					value: cleaned.join(", "),
+				});
+			}
+		});
+	} catch (_error) {
+		if (item?.posa_modifier_summary) {
+			normalized.push({
+				label: __("Modifiers"),
+				value: String(item.posa_modifier_summary),
+			});
+		}
+	}
+
+	return normalized;
 };
 
 const handleRowClick = (event: any, item: any, toggleExpand: any, internalItem: any) => {

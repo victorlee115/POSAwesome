@@ -282,6 +282,10 @@ export function get_invoice_doc(context: any) {
 	doc.posa_delivery_charges_rate = context.delivery_charges_rate || 0;
 	doc.posa_notes = sourceDoc.posa_notes ?? null;
 	doc.posa_authorization_code = sourceDoc.posa_authorization_code ?? null;
+	if (doc.doctype === "POS Invoice" || doc.doctype === "Sales Invoice") {
+		doc.posa_order_token = sourceDoc.posa_order_token ?? null;
+		doc.posa_cup_customer_name = sourceDoc.posa_cup_customer_name ?? null;
+	}
 	doc.posa_return_valid_upto = sourceDoc.posa_return_valid_upto ?? null;
 	doc.posting_date = context.formatDateForBackend
 		? context.formatDateForBackend(context.posting_date_display)
@@ -353,6 +357,11 @@ export function get_invoice_items(context: any) {
 	const items_list: any[] = [];
 	const isReturn = context.isReturnInvoice;
 	const omitFreebies = !isOffline();
+	const willCreateSalesOrder =
+		context.invoiceType === "Order" &&
+		!!context.pos_profile?.posa_create_only_sales_order;
+	const willCreateQuotation = context.invoiceType === "Quotation";
+	const supportsModifierFields = !(willCreateSalesOrder || willCreateQuotation);
 
 	context.items.forEach((item) => {
 		if (omitFreebies && item && item.auto_free_source) {
@@ -393,6 +402,15 @@ export function get_invoice_items(context: any) {
 				? context.formatDateForBackend(item.posa_delivery_date)
 				: item.posa_delivery_date,
 		};
+
+			if (supportsModifierFields) {
+				new_item.posa_modifiers_json = item.posa_modifiers_json || "";
+				new_item.posa_modifier_summary = item.posa_modifier_summary || "";
+				new_item.posa_modifiers_delta = flt(item.posa_modifiers_delta || 0);
+				new_item.posa_prep_status = item.posa_prep_status || "Paid";
+				new_item.posa_drink_code = item.posa_drink_code || "";
+				new_item.posa_is_prep_item = item.posa_is_prep_item ? 1 : 0;
+			}
 
 		// Handle currency conversion for rates and amounts
 		const companyCurrency = context.pos_profile.currency;
