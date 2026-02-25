@@ -125,8 +125,8 @@ const frappe = window.frappe;
 .payment-summary-tile {
 	display: grid;
 	gap: 4px;
-	padding: 12px;
-	min-height: 72px;
+	padding: 10px 12px;
+	min-height: 64px;
 	border-radius: 12px;
 	border: 1px solid #bfd0e3;
 	background: #f6f9fd;
@@ -154,13 +154,12 @@ const frappe = window.frappe;
 }
 
 .payment-summary-value {
-	font-size: 1.28rem;
-	line-height: 1.2;
+	font-size: clamp(0.92rem, 2.2vw, 1.28rem);
+	line-height: 1.25;
 	font-weight: 800;
 	color: #112742;
-	white-space: nowrap;
-	overflow: hidden;
-	text-overflow: ellipsis;
+	word-break: break-all;
+	overflow-wrap: anywhere;
 }
 
 .payment-summary-change-grid {
@@ -169,7 +168,7 @@ const frappe = window.frappe;
 	gap: 8px;
 }
 
-@media (max-width: 900px) {
+@media (max-width: 600px) {
 	.payment-summary-grid,
 	.payment-summary-change-grid {
 		grid-template-columns: minmax(0, 1fr);

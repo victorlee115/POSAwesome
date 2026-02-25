@@ -118,7 +118,7 @@
 
 .container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"] .square-pos-columns,
 .container1 .square-pos-columns.device-tablet_landscape_compact {
-	grid-template-columns: minmax(0, 40%) minmax(0, 60%);
+	grid-template-columns: minmax(0, 42%) minmax(0, 58%);
 	gap: var(--pos-pane-gap, 8px);
 }
 
@@ -603,6 +603,18 @@
 	.container1 .square-pos-shell[data-device-profile="desktop"] .square-pos-columns,
 	.container1 .square-pos-columns.device-desktop {
 		grid-template-columns: minmax(0, 46%) minmax(0, 54%);
+	}
+}
+
+/* Tablet landscape — explicit override to keep side-by-side layout visible on
+   Samsung Galaxy Tab A11 (Fully Kiosk, ~1280–1600 px wide). The JS detection now
+   also covers this range; this CSS rule acts as a belt-and-suspenders fallback. */
+/* Belt-and-suspenders for tablets that JS detection correctly classifies.
+   Keeps the side-by-side layout on Samsung Galaxy Tab A11 in Fully Kiosk. */
+@media (min-width: 960px) and (max-width: 1600px) and (orientation: landscape) and (max-height: 1024px) {
+	.container1 .square-pos-columns {
+		grid-template-columns: minmax(0, 42%) minmax(0, 58%) !important;
+		gap: 8px !important;
 	}
 }
 

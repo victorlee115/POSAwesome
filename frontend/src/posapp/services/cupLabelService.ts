@@ -235,6 +235,12 @@ const resolveLineId = (item: AnyRecord, index: number) =>
 const resolveInvoiceName = (invoiceDoc: AnyRecord) => printableAscii(invoiceDoc?.name || "TEMP-INVOICE");
 
 const buildTspl = (job: CupLabelJob) => {
+	// Layout targets a 50 mm × 30 mm thermal label (400 × 240 dots at 8 dpmm).
+	// All text uses font "0" scale 1,1 (≈12×12 dots, ~1.5 mm cap height) to keep
+	// content compact. The order token uses scale 2,1 (wider, same height) so it
+	// reads quickly at a glance without consuming excess vertical space.
+	// QR at module scale 2 (each cell = 2×2 dots): version 2 QR ≈ 50 dots wide,
+	// placed right-side starting at X=274 → right edge ≈ 374 dots = 46.75 mm.
 	const header = tsplSafe(`${job.orderToken} ${job.orderSequence}/${job.orderSequenceTotal}`, ORDER_TOKEN_MAX + 8);
 	const cupName = tsplSafe(job.cupName, CUP_NAME_MAX);
 	const drinkName = tsplSafe(job.drinkName, DRINK_NAME_MAX);
@@ -246,19 +252,19 @@ const buildTspl = (job: CupLabelJob) => {
 	return (
 		"SIZE 50 mm,30 mm\r\n" +
 		"GAP 2 mm,0\r\n" +
-		"DIRECTION 1\r\n" +
+		"DIRECTION 0\r\n" +
 		"REFERENCE 0,0\r\n" +
 		"SPEED 4\r\n" +
 		"DENSITY 8\r\n" +
 		"CLS\r\n" +
-		`TEXT 10,8,"0",0,2,2,"${header}"\r\n` +
-		`TEXT 10,40,"0",0,2,2,"${cupName}"\r\n` +
-		`TEXT 10,74,"0",0,1,1,"${drinkName}"\r\n` +
-		`TEXT 10,98,"0",0,1,1,"${modifiers}"\r\n` +
-		"BAR 10,122,380,2\r\n" +
-		`TEXT 10,130,"0",0,1,1,"${tsplSafe(`${alerts} ${nowHHMM()}`, 34)}"\r\n` +
-		`QRCODE 292,152,L,3,A,0,"${payload}"\r\n` +
-		`TEXT 10,214,"0",0,1,1,"${labelId}"\r\n` +
+		`TEXT 10,4,"0",0,2,1,"${header}"\r\n` +
+		`TEXT 10,26,"0",0,1,1,"${cupName}"\r\n` +
+		`TEXT 10,42,"0",0,1,1,"${drinkName}"\r\n` +
+		`TEXT 10,58,"0",0,1,1,"${modifiers}"\r\n` +
+		"BAR 10,76,260,1\r\n" +
+		`TEXT 10,80,"0",0,1,1,"${tsplSafe(`${alerts} ${nowHHMM()}`, 28)}"\r\n` +
+		`QRCODE 274,8,L,2,A,0,"${payload}"\r\n` +
+		`TEXT 10,96,"0",0,1,1,"${labelId}"\r\n` +
 		"PRINT 1,1\r\n"
 	);
 };

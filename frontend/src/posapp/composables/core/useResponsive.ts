@@ -24,7 +24,10 @@ export const detectDeviceProfile = (width: number, height: number): PosDevicePro
 	}
 
 	const landscape = width >= height;
-	if (landscape && width <= 1400 && height <= 900) {
+	// Tablet landscape: covers common Android tablet viewports in landscape including
+	// Samsung Galaxy Tab A11 (Fully Kiosk typically reports 1280–1600 px wide at ~800–1024 px tall).
+	// Upper bounds are generous to handle higher-DPI devices that report larger CSS viewports.
+	if (landscape && width <= 1600 && height <= 1024) {
 		return "tablet_landscape_compact";
 	}
 
@@ -106,8 +109,8 @@ export function useResponsive() {
 			"--card-height": `${cardHeightVh}vh`,
 			"--font-scale": averageScale.value.toFixed(2),
 			"--pos-pane-gap": `${paneGap}px`,
-			"--pos-grid-left": compactTablet ? "40%" : "58%",
-			"--pos-grid-right": compactTablet ? "60%" : "42%",
+			"--pos-grid-left": compactTablet ? "42%" : "58%",
+			"--pos-grid-right": compactTablet ? "58%" : "42%",
 			"--pos-tap-target-min": "48px",
 		};
 	});
