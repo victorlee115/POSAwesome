@@ -54,6 +54,11 @@
 	<!-- Kiosk strip — tablet compact mode only -->
 	<div v-if="tabletCompact" class="kiosk-strip">
 		<span class="kiosk-strip-label">{{ posProfile ? posProfile.name : '' }}</span>
+		<span
+			class="kiosk-online-dot"
+			:class="isOnline ? 'kiosk-online-dot--online' : 'kiosk-online-dot--offline'"
+			:title="isOnline ? 'Online' : 'Offline'"
+		></span>
 		<v-btn icon variant="text" size="small" class="kiosk-gear-btn"
 			@click="kioskSheetOpen = true">
 			<v-icon size="20">mdi-cog-outline</v-icon>
@@ -105,12 +110,14 @@ import { useInvoiceStore } from "../../../stores/invoiceStore.js";
 import { useItemsStore } from "../../../stores/itemsStore.js";
 import { storeToRefs } from "pinia";
 import { useCustomerDisplayPublisher } from "../../../composables/pos/shared/useCustomerDisplayPublisher";
+import { useOnlineStatus } from "../../../composables/core/useOnlineStatus";
 
 export default {
 	setup() {
 		const eventBus = inject("eventBus");
 		const dialog = ref(false);
 		const responsive = useResponsive();
+		const { isOnline } = useOnlineStatus();
 		const rtl = useRtl();
 		const shift = usePosShift(() => {
 			dialog.value = true;
@@ -152,6 +159,7 @@ export default {
 			posProfile,
 			eventBus,
 			dialog,
+			isOnline,
 		};
 	},
 	data: function () {
@@ -320,6 +328,23 @@ export default {
 	overflow: hidden;
 	text-overflow: ellipsis;
 	white-space: nowrap;
+}
+
+.kiosk-online-dot {
+	width: 8px;
+	height: 8px;
+	border-radius: 50%;
+	flex-shrink: 0;
+}
+
+.kiosk-online-dot--online {
+	background: #22c074;
+	box-shadow: 0 0 0 2px rgba(34, 192, 116, 0.3);
+}
+
+.kiosk-online-dot--offline {
+	background: #e85555;
+	box-shadow: 0 0 0 2px rgba(232, 85, 85, 0.3);
 }
 
 .kiosk-gear-btn {

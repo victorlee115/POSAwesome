@@ -118,7 +118,7 @@
 
 .container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"] .square-pos-columns,
 .container1 .square-pos-columns.device-tablet_landscape_compact {
-	grid-template-columns: minmax(0, 42%) minmax(0, 58%);
+	grid-template-columns: minmax(0, 56%) minmax(0, 44%);
 	gap: var(--pos-pane-gap, 8px);
 }
 
@@ -486,6 +486,18 @@
 	padding: var(--posa-space-2);
 }
 
+.container1 .invoice-sticky-pay {
+	margin-bottom: 8px;
+}
+
+.container1 .invoice-sticky-pay .invoice-sticky-pay-btn {
+	min-height: 56px !important;
+	border-radius: 14px !important;
+	font-size: 1.15rem !important;
+	font-weight: 800 !important;
+	letter-spacing: 0.04em !important;
+}
+
 .container1 .invoice-summary-card {
 	margin: 0 !important;
 	background: transparent !important;
@@ -632,6 +644,12 @@
 	flex: 1 1 auto !important;
 	height: auto !important;
 	min-height: 0;
+}
+
+/* Hide stock qty row on item cards in tablet mode — barista doesn't need it */
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.card-item-stock {
+	display: none !important;
 }
 
 /* ─── Kiosk / tablet-compact mode ─────────────────────────────────────────── */

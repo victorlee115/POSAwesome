@@ -50,8 +50,9 @@
 					"
 				/>
 
-				<!-- Posting Date and Customer Balance Section -->
+				<!-- Posting Date and Customer Balance Section — hidden on tablet kiosk -->
 				<PostingDateRow
+					v-if="!tabletCompact"
 					ref="postingDateComponent"
 					:pos_profile="pos_profile"
 					:posting_date_display="posting_date_display"

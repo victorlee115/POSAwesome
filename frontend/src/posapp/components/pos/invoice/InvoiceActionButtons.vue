@@ -98,7 +98,7 @@
 				</v-btn>
 			</v-col>
 		</template>
-		<v-col cols="12">
+		<v-col cols="12" v-if="!tabletCompact">
 			<v-btn
 				block
 				variant="flat"
