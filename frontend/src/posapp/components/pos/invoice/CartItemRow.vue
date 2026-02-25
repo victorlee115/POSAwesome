@@ -547,7 +547,7 @@ const prepStatus = computed(() => {
 });
 
 const prepStatusLabel = computed(() => {
-	const labels: Record<string, string> = {
+	const labels = {
 		Paid: __("New Order"),
 		"In Prep": __("Making"),
 		Ready: __("Ready"),

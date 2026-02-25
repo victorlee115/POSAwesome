@@ -50,6 +50,31 @@
 				<Invoice></Invoice>
 			</section>
 		</div>
+
+	<!-- Kiosk strip — tablet compact mode only -->
+	<div v-if="tabletCompact" class="kiosk-strip">
+		<span class="kiosk-strip-label">{{ posProfile ? posProfile.name : '' }}</span>
+		<v-btn icon variant="text" size="small" class="kiosk-gear-btn"
+			@click="kioskSheetOpen = true">
+			<v-icon size="20">mdi-cog-outline</v-icon>
+		</v-btn>
+	</div>
+
+	<v-bottom-sheet v-model="kioskSheetOpen" max-height="50vh">
+		<v-card class="kiosk-sheet-card">
+			<v-list density="compact" nav>
+				<v-list-item prepend-icon="mdi-content-save-move-outline"
+					:title="__('Close Shift')"
+					@click="get_closing_data(); kioskSheetOpen = false" />
+				<v-list-item prepend-icon="mdi-sync"
+					:title="__('Sync Offline Invoices')"
+					@click="eventBus && eventBus.emit('sync_invoices'); kioskSheetOpen = false" />
+				<v-list-item prepend-icon="mdi-refresh"
+					:title="__('Reload Page')"
+					@click="windowReload" />
+			</v-list>
+		</v-card>
+	</v-bottom-sheet>
 	</div>
 </template>
 
@@ -134,7 +159,14 @@ export default {
 			// dialog moved to setup ref
 			itemsLoaded: false,
 			customersLoaded: false,
+			kioskSheetOpen: false,
 		};
+	},
+
+	computed: {
+		tabletCompact() {
+			return this.deviceProfile === "tablet_landscape_compact";
+		},
 	},
 
 	components: {
@@ -157,6 +189,9 @@ export default {
 	methods: {
 		create_opening_voucher() {
 			this.dialog = true;
+		},
+		windowReload() {
+			window.location.reload();
 		},
 		get_pos_setting() {
 			frappe.db.get_doc("POS Settings", undefined).then((_doc) => {
@@ -261,5 +296,37 @@ export default {
 	padding: 0;
 	margin-top: 0;
 	min-height: 0;
+}
+
+.kiosk-strip {
+	position: fixed;
+	bottom: 0;
+	left: 0;
+	right: 0;
+	height: 32px;
+	background: rgba(20, 30, 50, 0.85);
+	display: flex;
+	align-items: center;
+	justify-content: flex-end;
+	padding: 0 8px;
+	z-index: 9999;
+	gap: 8px;
+}
+
+.kiosk-strip-label {
+	color: rgba(255, 255, 255, 0.55);
+	font-size: 0.7rem;
+	flex: 1;
+	overflow: hidden;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.kiosk-gear-btn {
+	color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.kiosk-sheet-card {
+	border-radius: 16px 16px 0 0 !important;
 }
 </style>

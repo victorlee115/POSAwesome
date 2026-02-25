@@ -6,14 +6,11 @@
  * Calculates the number of columns based on container width.
  */
 export const getCardColumns = (width: number): number => {
-	if (width <= 420) {
+	if (width <= 560) {
 		return 2;
 	}
-	if (width <= 560) {
+	if (width <= 760) {
 		return 3;
-	}
-	if (width <= 980) {
-		return 4;
 	}
 	return 4;
 };

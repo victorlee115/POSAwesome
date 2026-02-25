@@ -29,6 +29,7 @@
 			<!-- Add dynamic-padding wrapper like Invoice component -->
 			<div class="dynamic-padding items-selector-body">
 					<ItemHeader
+					:tablet-compact="tabletCompact"
 					v-model:search-input="search_input"
 					v-model:qty-input="debounce_qty"
 					v-model:new-line="new_line"
@@ -71,6 +72,11 @@
 					/>
 
 				<section class="items-catalog-zone">
+					<QuickOrderBar
+						v-if="tabletCompact && items_view === 'card'"
+						:items="quickOrderItems"
+						@select-item="select_item"
+					/>
 					<div class="items-grid-area">
 						<ItemsSelectorCards
 							v-if="items_view === 'card'"
@@ -134,6 +140,7 @@
 				<div class="items-selector-toolbar-dock">
 					<ItemActionToolbar
 						class="item-action-toolbar"
+						:tablet-compact="tabletCompact"
 						v-model="item_group"
 						:items-group="items_group"
 						:items-view="items_view"
@@ -203,6 +210,7 @@ import ItemsSelectorTable from "./ItemsSelectorTable.vue";
 import NewItemDialog from "./NewItemDialog.vue";
 import ModifierProfileDialog from "./ModifierProfileDialog.vue";
 import ScanErrorDialog from "./ScanErrorDialog.vue";
+import QuickOrderBar from "./QuickOrderBar.vue";
 
 import { useResponsive } from "../../../composables/core/useResponsive";
 import { useRtl } from "../../../composables/core/useRtl";
@@ -1150,7 +1158,13 @@ const {
 	acknowledgeScanError,
 	onBarcodeScanned: onBarcodeScannedFromScannerInput,
 } = scannerInput;
-const { responsiveStyles, catalogRenderMode } = responsive;
+const { responsiveStyles, catalogRenderMode, deviceProfile } = responsive;
+const tabletCompact = computed(() => deviceProfile.value === "tablet_landscape_compact");
+// QuickOrderBar: first 12 items when no search is active (tablet compact + card view only)
+const quickOrderItems = computed(() => {
+	if (!tabletCompact.value || items_view.value !== "card" || search_input.value) return [];
+	return displayedItems.value.slice(0, 12);
+});
 const { rtlClasses } = rtl;
 
 // Proxy functions for template

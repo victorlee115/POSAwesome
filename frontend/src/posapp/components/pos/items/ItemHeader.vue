@@ -78,7 +78,7 @@
 					hide-details
 				></v-checkbox>
 			</v-col>
-			<v-col cols="12" class="dynamic-margin-xs">
+			<v-col cols="12" class="dynamic-margin-xs" v-if="!tabletCompact">
 				<div class="settings-container">
 					<div class="settings-actions">
 						<v-btn
@@ -143,6 +143,7 @@ defineProps({
 	lastSyncTime: { type: String, default: "" },
 	syncStatus: { type: String, default: "" },
 	context: { type: String, default: "pos" },
+	tabletCompact: { type: Boolean, default: false },
 });
 
 defineEmits([

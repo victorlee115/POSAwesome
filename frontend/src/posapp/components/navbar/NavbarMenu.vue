@@ -248,7 +248,24 @@
 						</div>
 					</v-list-item>
 
-					<!-- Theme toggle menu item -->
+					<!-- High contrast toggle -->
+					<v-list-item @click="toggleHighContrast" class="menu-item-compact neutral-action">
+						<template v-slot:prepend>
+							<div class="menu-icon-wrapper-compact neutral-icon">
+								<v-icon color="white" size="16">mdi-contrast-circle</v-icon>
+							</div>
+						</template>
+						<div class="menu-content-compact">
+							<v-list-item-title class="menu-item-title-compact">{{
+								highContrast ? __("Normal Contrast") : __("High Contrast")
+							}}</v-list-item-title>
+							<v-list-item-subtitle class="menu-item-subtitle-compact">{{
+								__("Accessibility display mode")
+							}}</v-list-item-subtitle>
+						</div>
+					</v-list-item>
+
+				<!-- Theme toggle menu item -->
 					<v-list-item @click="$emit('toggle-theme')" class="menu-item-compact info-action">
 						<template v-slot:prepend>
 							<div class="menu-icon-wrapper-compact info-icon">
@@ -415,6 +432,7 @@ export default {
 	},
 	data() {
 		return {
+			highContrast: !!localStorage.getItem("posa_high_contrast"),
 			showLanguageDialog: false,
 			selectedLanguage: "en",
 			currentLanguage: "en",
@@ -485,8 +503,22 @@ export default {
 		window.addEventListener("resize", this.handleResize);
 		await this.initializeLanguage();
 		this.initializeWesternNumerals();
+		// Restore high-contrast mode across page reloads
+		if (this.highContrast) {
+			document.body.classList.add("posa-high-contrast");
+		}
 	},
 	methods: {
+		toggleHighContrast() {
+			this.highContrast = !this.highContrast;
+			if (this.highContrast) {
+				document.body.classList.add("posa-high-contrast");
+				localStorage.setItem("posa_high_contrast", "1");
+			} else {
+				document.body.classList.remove("posa-high-contrast");
+				localStorage.removeItem("posa_high_contrast");
+			}
+		},
 		initializeWesternNumerals() {
 			try {
 				const stored = localStorage.getItem("use_western_numerals");

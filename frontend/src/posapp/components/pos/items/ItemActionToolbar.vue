@@ -1,5 +1,5 @@
 <template>
-	<div class="item-action-toolbar-shell">
+	<div v-if="!tabletCompact" class="item-action-toolbar-shell">
 		<div class="toolbar-row toolbar-row-fields">
 			<v-select
 				class="toolbar-field items-group-field"
@@ -87,6 +87,7 @@ defineProps({
 	offersCount: { type: Number, default: 0 },
 	couponsCount: { type: Number, default: 0 },
 	prepEnabled: { type: Boolean, default: false },
+	tabletCompact: { type: Boolean, default: false },
 });
 
 defineEmits(["update:modelValue", "update:itemsView", "open-offers", "open-coupons", "open-prep"]);

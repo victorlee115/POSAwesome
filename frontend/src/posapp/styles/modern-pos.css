@@ -618,6 +618,71 @@
 	}
 }
 
+/* ─── QuickOrderBar layout inside catalog zone (tablet only) ──────────────── */
+/* Change items-catalog-zone to flex so QuickOrderBar stacks above the grid */
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.items-catalog-zone {
+	display: flex !important;
+	flex-direction: column;
+	overflow: hidden;
+}
+
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.items-grid-area {
+	flex: 1 1 auto !important;
+	height: auto !important;
+	min-height: 0;
+}
+
+/* ─── Kiosk / tablet-compact mode ─────────────────────────────────────────── */
+/* When the JS profile sets data-device-profile on .square-pos-shell, hide
+   the POS navbar (Close-Shift etc. are available via the kiosk gear strip)
+   and make room for the 32 px kiosk strip at the bottom.
+   Uses :has() (Chrome 105+, supported in Fully Kiosk Browser). */
+
+.container1:has(.square-pos-shell[data-device-profile="tablet_landscape_compact"])
+	.pos-navbar-enhanced {
+	display: none !important;
+}
+
+/* Tablets: when navbar is hidden, let page-content fill the full height */
+.container1:has(.square-pos-shell[data-device-profile="tablet_landscape_compact"])
+	.page-content {
+	padding-top: 0 !important;
+}
+
+/* Tablets: pad bottom of the page so the kiosk strip doesn't overlap content */
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"] {
+	padding-bottom: 32px;
+}
+
+/* ─── High-contrast mode ───────────────────────────────────────────────────── */
+/* Enabled by adding class posa-high-contrast to <body> or .container1 */
+.posa-high-contrast .container1,
+.posa-high-contrast.container1 {
+	--posa-bg: #0a0e14;
+	--posa-surface: #12181f;
+	--posa-surface-soft: #1a2130;
+	--posa-border: #2e3f52;
+	--posa-border-strong: #405568;
+	--posa-text: #e8f0f8;
+	--posa-text-muted: #8ca4bc;
+	--posa-brand: #4b9ff5;
+	--posa-brand-strong: #3b8fe0;
+	--posa-success: #22c074;
+	--posa-danger: #e85555;
+}
+
+.posa-high-contrast .container1 .pos-themed-card,
+.posa-high-contrast.container1 .pos-themed-card {
+	background: var(--posa-surface) !important;
+	border-color: var(--posa-border) !important;
+}
+
+.tablet-cup-label-zone {
+	padding: 0 0 4px;
+}
+
 @media (max-width: 980px) {
 	.container1 .square-pos-columns {
 		grid-template-columns: minmax(0, 1fr) !important;
@@ -660,4 +725,10 @@
 /* Hide item code (SKU) from item cards — irrelevant during cashier selling */
 .container1 .card-item-code {
 	display: none !important;
+}
+
+
+/* Tablet compact kiosk: reclaim vertical space */
+.container1[data-device-profile="tablet_landscape_compact"] header.v-app-bar {
+  display: none !important;
 }

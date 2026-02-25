@@ -103,7 +103,7 @@
 				<!-- Items Table Section (Main items list for invoice) -->
 				<div class="items-table-wrapper">
 					<!-- Refactored Action Toolbar -->
-					<InvoiceItemsActionToolbar
+					<InvoiceItemsActionToolbar v-if="!tabletCompact"
 						ref="actionToolbar"
 						:itemSearch="itemSearch"
 						:availableColumns="available_columns"
@@ -117,7 +117,21 @@
 						"
 					/>
 
-					<!-- ItemsTable component with reorder event handler -->
+					<!-- Cup label input (tablet compact mode only) -->
+					<div v-if="tabletCompact && invoice_doc" class="tablet-cup-label-zone">
+						<v-text-field
+							v-model="invoice_doc.posa_cup_customer_name"
+							:label="__('Cup Label Name')"
+							:counter="24"
+							variant="outlined"
+							density="compact"
+							hide-details="auto"
+							data-test="cup-label-name-cart"
+							class="mb-2"
+						/>
+					</div>
+
+				<!-- ItemsTable component with reorder event handler -->
 					<ItemsTable
 						ref="itemsTableRef"
 						:deviceProfile="deviceProfile"
@@ -168,9 +182,24 @@
 			</div>
 
 			<div class="invoice-summary-dock">
+
+				<div v-if="tabletCompact" class="invoice-sticky-pay">
+					<v-btn
+						class="invoice-sticky-pay-btn"
+						color="success"
+						variant="flat"
+						size="large"
+						block
+						@click="handleShowPaymentRequest"
+					>
+						PAY
+					</v-btn>
+				</div>
+
 				<InvoiceSummary
 					ref="invoiceSummary"
 					class="invoice-summary-card"
+					:tabletCompact="tabletCompact"
 					:pos_profile="pos_profile"
 					:total_qty="total_qty"
 					:additional_discount="additional_discount"
@@ -255,6 +284,7 @@ export default {
 		const { isOnline } = useOnlineStatus();
 		const { deviceProfile, cartRenderMode } = useResponsive();
 
+		
 		const { activeView } = storeToRefs(uiStore);
 		const { selectedCustomer, refreshToken: customerRefreshToken } = storeToRefs(customersStore);
 		const { items, packedItems: packed_items, invoiceDoc: invoice_doc } = storeToRefs(invoiceStore);
@@ -349,6 +379,9 @@ export default {
 		PaymentConfirmationDialog,
 	},
 	computed: {
+		tabletCompact() {
+			return this.deviceProfile === "tablet_landscape_compact";
+		},
 		items: {
 			get() {
 				return this.invoiceStore.items;

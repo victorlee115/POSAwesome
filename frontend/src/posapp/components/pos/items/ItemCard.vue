@@ -152,7 +152,7 @@ const formatPriceOrZero = (value, currency, precision) => {
 };
 
 const primaryPriceDisplay = computed(() =>
-	formatPriceOrZero(primaryRate.value, primaryCurrency.value, primaryPrecision.value),
+	formatPriceOrZero(primaryRate.value, primaryCurrency.value, Math.max(primaryPrecision.value, 2)),
 );
 
 const showSecondaryPrice = computed(() => {
@@ -165,7 +165,7 @@ const showSecondaryPrice = computed(() => {
 });
 
 const secondaryPriceDisplay = computed(() =>
-	formatPriceOrZero(props.item.rate ?? 0, secondaryCurrency.value, primaryPrecision.value),
+	formatPriceOrZero(props.item.rate ?? 0, secondaryCurrency.value, Math.max(primaryPrecision.value, 2)),
 );
 
 const formattedActualQty = computed(() => {
