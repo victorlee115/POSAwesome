@@ -234,30 +234,68 @@ const resolveLineId = (item: AnyRecord, index: number) =>
 
 const resolveInvoiceName = (invoiceDoc: AnyRecord) => printableAscii(invoiceDoc?.name || "TEMP-INVOICE");
 
-const buildTspl = (job: CupLabelJob) => {
-	// Layout targets a 30 mm × 30 mm thermal label (240 × 240 dots at 8 dpmm).
-	// Prints only the fields a barista needs: order token + cup position, customer
-	// name, drink name, and modifiers. Font "0" scale 1,1 ≈ 12×12 dots (~1.5 mm
-	// cap height), ~27 chars/line at 30 mm. Token uses scale 2,1 for quick reading.
-	const header = tsplSafe(`${job.orderToken} ${job.orderSequence}/${job.orderSequenceTotal}`, ORDER_TOKEN_MAX + 8);
-	const cupName = tsplSafe(job.cupName, CUP_NAME_MAX);
-	const drinkName = tsplSafe(job.drinkName, DRINK_NAME_MAX);
-	const modifiers = tsplSafe(job.modifiers, MODIFIERS_MAX);
+function wrapLines(
+  text: string,
+  maxCharsPerLine: number = 24,
+  maxLines: number = 3
+): string[] {
+  const words = text.replace(/\s+/g, " ").trim().split(" ").filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
 
-	return (
-		"SIZE 30 mm,30 mm\r\n" +
-		"GAP 2 mm,0\r\n" +
-		"DIRECTION 0\r\n" +
-		"REFERENCE 0,0\r\n" +
-		"SPEED 4\r\n" +
-		"DENSITY 8\r\n" +
-		"CLS\r\n" +
-		`TEXT 10,4,"0",0,2,1,"${header}"\r\n` +
-		`TEXT 10,26,"0",0,1,1,"${cupName}"\r\n` +
-		`TEXT 10,42,"0",0,1,1,"${drinkName}"\r\n` +
-		`TEXT 10,58,"0",0,1,1,"${modifiers}"\r\n` +
-		"PRINT 1,1\r\n"
-	);
+  for (const w of words) {
+    if (!cur) cur = w;
+    else if ((cur + " " + w).length <= maxCharsPerLine) cur += " " + w;
+    else {
+      lines.push(cur);
+      cur = w;
+      if (lines.length >= maxLines) break;
+    }
+  }
+  if (lines.length < maxLines && cur) lines.push(cur);
+
+  while (lines.length < maxLines) lines.push("");
+
+  // add ellipsis if we truncated
+  const full = words.join(" ");
+  const shown = lines.join(" ").trim();
+  if (shown.length < full.length && maxLines > 0) {
+    // Use ASCII dots because tsplSafe() strips non-ASCII like "…"
+	const cut = Math.max(0, maxCharsPerLine - 3);
+	lines[maxLines - 1] = lines[maxLines - 1].slice(0, cut) + "...";
+  }
+
+  return lines;
+}
+
+const buildTspl = (job: CupLabelJob) => {
+  const header = tsplSafe(`${job.orderToken} ${job.orderSequence}/${job.orderSequenceTotal}`, 26);
+  const cupName = tsplSafe(job.cupName, 18);
+  const drinkName = tsplSafe(job.drinkName, 18);
+
+  // 3 lines of modifiers, 24 chars each
+  const normalizedMods = (job.modifiers || "")
+  .replace(/\s*\|\s*/g, ", ")
+  .replace(/\s+/g, " ")
+  .trim();
+
+  const [m1, m2, m3] = wrapLines(normalizedMods, 24, 3).map((s) => tsplSafe(s, 24));
+  return (
+    "SIZE 40 mm,30 mm\r\n" +
+    "GAP 3 mm,0\r\n" +
+    "DIRECTION 0\r\n" +
+    "REFERENCE 10,16\r\n" +
+    "SPEED 4\r\n" +
+    "DENSITY 8\r\n" +
+    "CLS\r\n" +
+    `TEXT 0,0,"0",0,1,1,"${header}"\r\n` +
+    `TEXT 0,20,"0",0,1,1,"${cupName}"\r\n` +
+    `TEXT 0,44,"0",0,2,2,"${drinkName}"\r\n` +
+    `TEXT 0,92,"0",0,1,1,"${m1}"\r\n` +
+    `TEXT 0,112,"0",0,1,1,"${m2}"\r\n` +
+    `TEXT 0,132,"0",0,1,1,"${m3}"\r\n` +
+    "PRINT 1,1\r\n"
+  );
 };
 
 const toHex = (tspl: string) => {
