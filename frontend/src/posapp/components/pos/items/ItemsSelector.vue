@@ -1036,6 +1036,7 @@ onMounted(async () => {
 		});
 		eventBus.on("update_invoice_type", handleInvoiceTypeUpdate);
 		eventBus.on("edit-line-modifiers", handleEditLineModifiers);
+		eventBus.on("reload_items", () => forceReloadItems());
 	}
 
 	// Watch UI Profile for initialization (Source of Truth)

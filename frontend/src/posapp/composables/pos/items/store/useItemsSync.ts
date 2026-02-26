@@ -175,7 +175,7 @@ export function useItemsSync() {
 				item_group: "",
 				search_value: "",
 				customer: customer,
-				include_image: 0,
+				include_image: 1,
 				item_groups:
 					posProfile?.item_groups?.map((g: any) => g.item_group) ||
 					[],

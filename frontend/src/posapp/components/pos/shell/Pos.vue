@@ -73,6 +73,10 @@
 					subtitle="Clear cart and start fresh"
 					@click="eventBus && eventBus.emit('clear_invoice'); kioskSheetOpen = false" />
 				<v-divider class="my-1" />
+				<v-list-item prepend-icon="mdi-image-refresh-outline"
+					:title="__('Reload Items')"
+					subtitle="Re-fetch menu &amp; images from server"
+					@click="eventBus && eventBus.emit('reload_items'); kioskSheetOpen = false" />
 				<v-list-item prepend-icon="mdi-content-save-move-outline"
 					:title="__('Close Shift')"
 					@click="get_closing_data(); kioskSheetOpen = false" />

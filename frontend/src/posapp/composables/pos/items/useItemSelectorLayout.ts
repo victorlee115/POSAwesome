@@ -66,14 +66,17 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 	};
 
 	const cardRowHeight = computed(() => {
+		// tablet_landscape_compact (Tab A11 kiosk) or short viewport: compact text-only cards.
+		// This must be checked BEFORE the useSmallMenuGrid branch so it applies regardless
+		// of item count (useSmallMenuGrid is false when there are > 12 items).
+		const isTabletCompact =
+			deviceProfile?.value === "tablet_landscape_compact" ||
+			windowHeight.value <= 760;
+		if (isTabletCompact) {
+			return 100;
+		}
+
 		if (useSmallMenuGrid.value) {
-			// tablet_landscape_compact (Tab A11 kiosk) or short viewport: compact text-only cards
-			const isTabletCompact =
-				deviceProfile?.value === "tablet_landscape_compact" ||
-				windowHeight.value <= 760;
-			if (isTabletCompact) {
-				return 100;
-			}
 			if (effectiveWidth.value <= 560) {
 				return compactRowHeights.narrow;
 			}

@@ -652,18 +652,33 @@
 	display: none !important;
 }
 
+/* ─── Compact item card height (tablet kiosk) ─────────────────────────────── */
+/* Force 100 px rows on the CSS grid — belt-and-suspenders alongside the JS
+   cardRowHeight=100 calculation. grid-auto-rows wins over inline styles and
+   align-items:stretch, so this is the most reliable approach.
+   Also cap individual cards and clip overflow. */
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.items-card-grid--simple {
+	grid-auto-rows: 100px !important;
+}
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.items-card-grid--simple .card-item-card {
+	max-height: 100px !important;
+	overflow: hidden !important;
+}
+/* Image container is 96 px tall — not viable inside a 100 px card.
+   Hide it in compact mode; cashiers identify drinks by name + price. */
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.card-item-image-container {
+	display: none !important;
+}
+
 /* Tablet kiosk: hide search bar — items selected via QuickOrderBar pills.
-   The sticky-header is the first auto row in the items-selector-body grid;
-   hiding it lets the catalog zone expand to fill the freed vertical space.
-   Also collapse the row-gap so no empty strip remains at the top. */
+   CSS grid collapses the auto-sized first row naturally when its child is
+   display:none, so we only need to hide the header — no grid override needed. */
 .container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
 	.sticky-header {
 	display: none !important;
-}
-.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
-	.items-selector-body {
-	grid-template-rows: 0 minmax(0, 1fr) auto !important;
-	gap: 0 !important;
 }
 
 /* ─── Kiosk / tablet-compact mode ─────────────────────────────────────────── */
@@ -760,7 +775,14 @@
 }
 
 
-/* Tablet compact kiosk: reclaim vertical space */
-.container1[data-device-profile="tablet_landscape_compact"] header.v-app-bar {
-  display: none !important;
+/* Tablet compact kiosk: reclaim vertical space.
+   v-app-bar is hidden via .pos-navbar-enhanced display:none, but Vuetify's layout
+   system still injects padding-top on .v-main as an inline style equal to the
+   app-bar height. Override it here so the white strip disappears. */
+.container1:has(.square-pos-shell[data-device-profile="tablet_landscape_compact"]) .v-main {
+	padding-top: 0 !important;
+	padding-bottom: 0 !important;
+}
+.container1:has(.square-pos-shell[data-device-profile="tablet_landscape_compact"]) header.v-app-bar {
+	display: none !important;
 }
