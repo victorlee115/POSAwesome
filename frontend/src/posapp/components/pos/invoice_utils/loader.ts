@@ -4,6 +4,7 @@ import {
 	getCachedCustomerBalance,
 } from "../../../../offline/index";
 import { useDiscounts } from "../../../composables/pos/shared/useDiscounts";
+import { useInvoiceStore } from "../../../stores/invoiceStore";
 
 declare const __: (_text: string, _args?: any[]) => string;
 declare const flt: (_value: unknown, _precision?: number) => number;
@@ -137,6 +138,28 @@ export async function load_invoice(
 
 	if (context.clear_invoice) {
 		context.clear_invoice({ preserveStickies });
+	}
+
+	// FIX: Synchronously restore the store's additionalDiscount from the server document
+	// immediately after clear_invoice() resets it to 0, and before context.items is
+	// assigned (which calls setItems() → touch() → changeVersion++, queueing the
+	// syncPaymentDocumentTotalsFromCart watcher).
+	//
+	// Without this, when Vue flushes watchers during `await set_delivery_charges()`,
+	// syncPaymentDocumentTotalsFromCart reads invoiceStore.additionalDiscount = 0 and
+	// computes grand_total without the discount (0 ?? doc.discount_amount evaluates to
+	// 0 via nullish coalescing, since 0 is neither null nor undefined).
+	//
+	// The full discount restoration (percentage logic, context.discount_amount, etc.)
+	// still runs later in this function — this early set only ensures the store ref
+	// holds a non-zero value during the timing window between clear and full restore.
+	if (!preserveStickies) {
+		const invoiceStore = useInvoiceStore();
+		let earlyDiscountAmount = flt(data?.discount_amount || 0);
+		if (Boolean(data?.is_return) && !usePercentageDiscount && earlyDiscountAmount > 0) {
+			earlyDiscountAmount = -Math.abs(earlyDiscountAmount);
+		}
+		invoiceStore.setAdditionalDiscount(earlyDiscountAmount);
 	}
 
 	// Restore stickies if they aren't provided in the data
