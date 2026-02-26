@@ -441,4 +441,47 @@ const onDragEnd = (event) => {
 		font-size: 0.68rem;
 	}
 }
+
+/* Compact layout for tablet landscape (Tab A11 in Fully Kiosk: 1024×611 CSS px).
+   Override the grid layout so name + price stack and centre vertically.
+   !important ensures we win over the base scoped rule (same specificity, cascade tie). */
+@media (min-width: 960px) and (max-width: 1600px) and (orientation: landscape) and (max-height: 1024px) {
+	.card-item-content {
+		display: flex !important;
+		flex-direction: column !important;
+		justify-content: center !important;
+		gap: 2px !important;
+		padding: 6px 10px !important;
+	}
+
+	.card-item-main {
+		flex: 0 0 auto !important;
+		overflow: hidden !important;
+	}
+
+	.card-item-details {
+		flex: 0 0 auto !important;
+		margin-top: 2px !important;
+		min-height: 0 !important;
+		align-items: center !important;
+	}
+
+	.card-item-code {
+		display: none !important;
+	}
+
+	.card-item-stock {
+		display: none !important;
+	}
+
+	.card-item-name {
+		font-size: 0.82rem !important;
+		-webkit-line-clamp: 2 !important;
+		line-clamp: 2 !important;
+	}
+
+	.primary-price {
+		font-size: 0.88rem !important;
+	}
+}
 </style>

@@ -185,6 +185,23 @@
 			<div class="invoice-summary-dock">
 
 				<div v-if="tabletCompact" class="invoice-sticky-pay">
+					<!-- Discount row — only when the POS profile allows editing -->
+					<div
+						v-if="pos_profile && pos_profile.posa_allow_user_to_edit_additional_discount"
+						class="tablet-discount-row"
+					>
+						<v-btn
+							variant="tonal"
+							:color="tabletHasDiscount ? 'warning' : 'default'"
+							size="small"
+							prepend-icon="mdi-tag-minus-outline"
+							@click="openTabletDiscountSheet"
+							class="tablet-discount-btn"
+						>
+							{{ tabletDiscountLabel }}
+						</v-btn>
+					</div>
+
 					<v-btn
 						class="invoice-sticky-pay-btn"
 						color="success"
@@ -196,6 +213,52 @@
 						PAY
 					</v-btn>
 				</div>
+
+				<!-- Tablet Discount bottom sheet -->
+				<v-bottom-sheet v-model="tabletDiscountSheetOpen" max-width="480">
+					<v-card class="tablet-discount-sheet pa-2">
+						<v-card-title class="d-flex align-center gap-2 pb-1">
+							<v-icon color="warning">mdi-tag-minus</v-icon>
+							{{ __("Apply Discount") }}
+						</v-card-title>
+						<v-card-text class="pt-2">
+							<!-- Named presets from POS Profile (posa_discount_presets JSON) -->
+							<div v-if="tabletDiscountPresets.length" class="tablet-discount-presets mb-3">
+								<v-btn
+									v-for="preset in tabletDiscountPresets"
+									:key="preset.label"
+									variant="tonal"
+									size="small"
+									color="warning"
+									@click="applyTabletDiscountPresetObj(preset)"
+								>{{ preset.label }}</v-btn>
+							</div>
+							<!-- Custom value input -->
+							<v-text-field
+								v-model="tabletDiscountInput"
+								:label="pos_profile && pos_profile.posa_use_percentage_discount ? __('Discount %') : __('Discount Amount')"
+								:suffix="pos_profile && pos_profile.posa_use_percentage_discount ? '%' : ''"
+								:prefix="pos_profile && !pos_profile.posa_use_percentage_discount ? currencySymbol(pos_profile.currency) : ''"
+								type="number"
+								min="0"
+								variant="outlined"
+								density="comfortable"
+								hide-details
+								autofocus
+								@keyup.enter="applyTabletDiscount"
+							/>
+						</v-card-text>
+						<v-card-actions class="pt-0">
+							<v-btn color="error" variant="text" @click="clearTabletDiscount">
+								{{ __("Clear") }}
+							</v-btn>
+							<v-spacer />
+							<v-btn color="warning" variant="flat" @click="applyTabletDiscount">
+								{{ __("Apply") }}
+							</v-btn>
+						</v-card-actions>
+					</v-card>
+				</v-bottom-sheet>
 
 				<InvoiceSummary
 					ref="invoiceSummary"
@@ -364,6 +427,8 @@ export default {
 			return_discount_base_total: 0,
 			return_discount_base_amount: 0,
 			_busHandlers: {},
+			tabletDiscountSheetOpen: false,
+			tabletDiscountInput: "",
 		};
 	},
 
@@ -382,6 +447,35 @@ export default {
 	computed: {
 		tabletCompact() {
 			return this.deviceProfile === "tablet_landscape_compact";
+		},
+		tabletHasDiscount() {
+			return (
+				Number(this.additional_discount_percentage || 0) > 0 ||
+				Number(this.additional_discount || 0) > 0
+			);
+		},
+		tabletDiscountLabel() {
+			if (this.pos_profile?.posa_use_percentage_discount) {
+				const pct = Number(this.additional_discount_percentage || 0);
+				return pct > 0 ? `${pct}% ${this.__("Discount")}` : this.__("Discount");
+			}
+			const amt = Number(this.additional_discount || 0);
+			return amt > 0
+				? `${this.currencySymbol(this.pos_profile?.currency)}${amt} ${this.__("Discount")}`
+				: this.__("Discount");
+		},
+		tabletDiscountPresets() {
+			const raw = this.pos_profile?.posa_discount_presets;
+			if (!raw) return [];
+			try {
+				const parsed = JSON.parse(raw);
+				if (!Array.isArray(parsed)) return [];
+				return parsed.filter(
+					(p) => p && typeof p.label === "string" && typeof p.value === "number",
+				);
+			} catch {
+				return [];
+			}
 		},
 		items: {
 			get() {
@@ -816,6 +910,54 @@ export default {
 		handleSetNewLine(data) {
 			this.new_line = data;
 		},
+		// ── Tablet discount sheet ────────────────────────────────────────────
+		openTabletDiscountSheet() {
+			// Pre-fill the input with the current discount value
+			if (this.pos_profile?.posa_use_percentage_discount) {
+				const pct = Number(this.additional_discount_percentage || 0);
+				this.tabletDiscountInput = pct > 0 ? String(pct) : "";
+			} else {
+				const amt = Number(this.additional_discount || 0);
+				this.tabletDiscountInput = amt > 0 ? String(amt) : "";
+			}
+			this.tabletDiscountSheetOpen = true;
+		},
+		applyTabletDiscountPreset(pct) {
+			this.tabletDiscountInput = String(pct);
+			this.applyTabletDiscount();
+		},
+		applyTabletDiscountPresetObj(preset) {
+			// Preset has: { label, type: "amount"|"percent", value: Number }
+			const val = Math.max(0, Number(preset.value) || 0);
+			if (preset.type === "percent") {
+				this.additional_discount_percentage = val;
+				this.update_discount_umount();
+			} else {
+				// Amount discount — set directly, clear % so there's no conflict
+				this.additional_discount = val;
+				this.additional_discount_percentage = 0;
+			}
+			this.tabletDiscountSheetOpen = false;
+		},
+		applyTabletDiscount() {
+			const val = Math.max(0, Number(this.tabletDiscountInput) || 0);
+			if (this.pos_profile?.posa_use_percentage_discount) {
+				this.additional_discount_percentage = val;
+				this.update_discount_umount();
+			} else {
+				this.additional_discount = val;
+				this.additional_discount_percentage = 0;
+			}
+			this.tabletDiscountSheetOpen = false;
+		},
+		clearTabletDiscount() {
+			this.tabletDiscountInput = "";
+			this.additional_discount = 0;
+			this.additional_discount_percentage = 0;
+			this.update_discount_umount();
+			this.tabletDiscountSheetOpen = false;
+		},
+		// ─────────────────────────────────────────────────────────────────────
 		handleShowPaymentRequest() {
 			this.show_payment();
 		},

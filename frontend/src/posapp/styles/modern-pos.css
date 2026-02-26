@@ -488,6 +488,9 @@
 
 .container1 .invoice-sticky-pay {
 	margin-bottom: 8px;
+	display: flex;
+	flex-direction: column;
+	gap: 6px;
 }
 
 .container1 .invoice-sticky-pay .invoice-sticky-pay-btn {
@@ -496,6 +499,29 @@
 	font-size: 1.15rem !important;
 	font-weight: 800 !important;
 	letter-spacing: 0.04em !important;
+}
+
+/* Discount row above PAY */
+.container1 .tablet-discount-row {
+	display: flex;
+	justify-content: flex-start;
+}
+
+.container1 .tablet-discount-btn {
+	border-radius: 20px !important;
+	font-weight: 600 !important;
+	letter-spacing: 0.02em !important;
+}
+
+/* Discount bottom sheet */
+.tablet-discount-sheet {
+	border-radius: 16px 16px 0 0 !important;
+}
+
+.tablet-discount-presets {
+	display: flex;
+	gap: 8px;
+	flex-wrap: wrap;
 }
 
 .container1 .invoice-summary-card {
@@ -628,6 +654,22 @@
 		grid-template-columns: minmax(0, 42%) minmax(0, 58%) !important;
 		gap: 8px !important;
 	}
+
+	/* Compact item cards — pure CSS, fires without waiting for JS.
+	   grid-auto-rows locks every row to 90 px; image container hidden.
+	   Internal content layout (flex, centred) is handled by ItemCard.vue's
+	   own scoped media query, which wins reliably without !important battles. */
+	.container1 .items-card-grid--simple {
+		grid-auto-rows: 90px !important;
+	}
+	.container1 .items-card-grid--simple .card-item-card {
+		max-height: 90px !important;
+		min-height: 0 !important;
+		overflow: hidden !important;
+	}
+	.container1 .card-item-image-container {
+		display: none !important;
+	}
 }
 
 /* ─── QuickOrderBar layout inside catalog zone (tablet only) ──────────────── */
@@ -652,26 +694,6 @@
 	display: none !important;
 }
 
-/* ─── Compact item card height (tablet kiosk) ─────────────────────────────── */
-/* Force 100 px rows on the CSS grid — belt-and-suspenders alongside the JS
-   cardRowHeight=100 calculation. grid-auto-rows wins over inline styles and
-   align-items:stretch, so this is the most reliable approach.
-   Also cap individual cards and clip overflow. */
-.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
-	.items-card-grid--simple {
-	grid-auto-rows: 100px !important;
-}
-.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
-	.items-card-grid--simple .card-item-card {
-	max-height: 100px !important;
-	overflow: hidden !important;
-}
-/* Image container is 96 px tall — not viable inside a 100 px card.
-   Hide it in compact mode; cashiers identify drinks by name + price. */
-.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
-	.card-item-image-container {
-	display: none !important;
-}
 
 /* Tablet kiosk: hide search bar — items selected via QuickOrderBar pills.
    CSS grid collapses the auto-sized first row naturally when its child is

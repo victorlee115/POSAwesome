@@ -161,12 +161,13 @@ const simpleGridStyle = computed(() => {
 
 const simpleCardStyle = computed(() => {
 	const h = Number(props.cardRowHeight || 224);
-	// Allow compact heights for short-viewport (tablet) mode
-	const compactHeight = h < 150 ? Math.max(72, h) : Math.max(216, Math.min(236, h));
-	return {
-		height: `${compactHeight}px`,
-		minHeight: `${compactHeight}px`,
-	};
+	// Compact mode (tablet): only set height, NOT minHeight, so that the CSS
+	// max-height:90px !important can actually clamp the card down.
+	if (h < 150) {
+		return { height: `${Math.max(72, h)}px` };
+	}
+	const fullHeight = Math.max(216, Math.min(236, h));
+	return { height: `${fullHeight}px`, minHeight: `${fullHeight}px` };
 });
 
 const handleItemClick = (event, item) => {

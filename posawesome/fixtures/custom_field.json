@@ -864,6 +864,17 @@
 		"width": null
 	},
 	{
+		"doctype": "Custom Field",
+		"dt": "POS Profile",
+		"fieldname": "posa_discount_presets",
+		"fieldtype": "Small Text",
+		"insert_after": "posa_max_discount_allowed",
+		"label": "Discount Presets (JSON)",
+		"description": "JSON array of quick-tap preset discount buttons. Format: [{\"label\":\"Instagram\",\"type\":\"amount\",\"value\":1},{\"label\":\"Staff\",\"type\":\"percent\",\"value\":20}]",
+		"depends_on": "posa_allow_user_to_edit_additional_discount",
+		"name": "POS Profile-posa_discount_presets"
+	},
+	{
 		"allow_in_quick_entry": 0,
 		"allow_on_submit": 0,
 		"bold": 0,
