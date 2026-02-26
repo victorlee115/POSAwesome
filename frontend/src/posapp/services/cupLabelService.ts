@@ -282,13 +282,15 @@ function wrapLines(
   while (lines.length < maxLines) lines.push("");
 
   // add ellipsis if we truncated
-  const full = words.join(" ");
-  const shown = lines.join(" ").trim();
-  if (shown.length < full.length && maxLines > 0) {
-    // Use ASCII dots because tsplSafe() strips non-ASCII like "…"
+	const full = words.join(" ");
+	const shown = lines.join(" ").trim();
+
+	if (shown.length < full.length && maxLines > 0) {
+	const idx = maxLines - 1;
 	const cut = Math.max(0, maxCharsPerLine - 3);
-	lines[maxLines - 1] = lines[maxLines - 1].slice(0, cut) + "...";
-  }
+	const last = lines[idx] ?? "";              // <-- prevents undefined
+	lines[idx] = last.slice(0, cut) + "...";
+	}
 
   return lines;
 }
