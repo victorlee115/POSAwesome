@@ -68,6 +68,11 @@
 	<v-bottom-sheet v-model="kioskSheetOpen" max-height="50vh">
 		<v-card class="kiosk-sheet-card">
 			<v-list density="compact" nav>
+				<v-list-item prepend-icon="mdi-cart-off"
+					:title="__('New Order')"
+					subtitle="Clear cart and start fresh"
+					@click="eventBus && eventBus.emit('clear_invoice'); kioskSheetOpen = false" />
+				<v-divider class="my-1" />
 				<v-list-item prepend-icon="mdi-content-save-move-outline"
 					:title="__('Close Shift')"
 					@click="get_closing_data(); kioskSheetOpen = false" />

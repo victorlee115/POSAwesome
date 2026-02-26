@@ -145,10 +145,11 @@ const primaryPrecision = computed(() => {
 
 const secondaryCurrency = computed(() => props.selectedCurrency);
 
-const formatPriceOrZero = (value, currency, precision) => {
-	const formatted = props.formatCurrency(value, currency, precision);
+const formatPriceOrZero = (value, _currency, precision) => {
+	// formatCurrency(value, precision) — currency arg is not used by the formatter
+	const formatted = props.formatCurrency(value, precision);
 	const normalized = String(formatted ?? "").trim();
-	return normalized.length ? normalized : props.formatCurrency(0, currency, precision);
+	return normalized.length ? normalized : props.formatCurrency(0, precision);
 };
 
 const primaryPriceDisplay = computed(() =>

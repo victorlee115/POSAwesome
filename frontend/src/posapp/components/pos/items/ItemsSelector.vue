@@ -75,7 +75,9 @@
 					<QuickOrderBar
 						v-if="tabletCompact && items_view === 'card'"
 						:items="quickOrderItems"
+						:pos-profile-name="pos_profile?.name || ''"
 						@select-item="select_item"
+						@quick-preset-order="({ item, preset }) => add_item(item, { presetSelection: preset })"
 					/>
 					<div class="items-grid-area">
 						<ItemsSelectorCards
@@ -556,6 +558,7 @@ const {
 	resizeDebounce: 100,
 	loadVisibleItems: () => itemsLoader.loadVisibleItems(),
 	getDisplayedItemsCount: () => displayedItems.value.length,
+	deviceProfile: responsive.deviceProfile,
 });
 
 const fetchModifierProfile = async (itemCode: string): Promise<ModifierProfilePayload | null> => {
@@ -594,8 +597,14 @@ const resolveModifierSelection = async (
 	options: {
 		forceModifierDialog?: boolean;
 		initialSelections?: Record<string, string[]>;
+		presetSelection?: any;
 	} = {},
 ) => {
+	// If a full preset selection is provided, skip dialog entirely
+	if (options.presetSelection && !options.forceModifierDialog) {
+		return options.presetSelection;
+	}
+
 	const profile = await fetchModifierProfile(item.item_code);
 	if (!profile || !Array.isArray(profile.groups) || profile.groups.length === 0) {
 		return NO_MODIFIER_PROFILE;
@@ -648,6 +657,13 @@ const applyModifierSelectionToItem = (item: any, selection: any) => {
 };
 
 const onModifierDialogConfirm = (selection: any) => {
+	// Auto-save as QuickOrderBar preset for future bypass
+	if (selection && modifierDialogItem.value?.item_code && pos_profile.value?.name) {
+		const key = `posa_preset_${pos_profile.value.name}_${modifierDialogItem.value.item_code}`;
+		localStorage.setItem(key, JSON.stringify(selection));
+		// Notify QuickOrderBar in the same tab (storage event only fires in other tabs)
+		window.dispatchEvent(new CustomEvent("posa-preset-saved", { detail: { key } }));
+	}
 	if (modifierDialogResolver) {
 		modifierDialogResolver(selection);
 	}
@@ -768,6 +784,7 @@ const add_item = async (item, optionsOrQty: any = {}) => {
 			if (isValid) {
 				const selection = await resolveModifierSelection(item, {
 					forceModifierDialog: !!options.forceModifierDialog,
+					presetSelection: options.presetSelection,
 				});
 				if (selection === null) {
 					// Dialog cancelled by cashier; avoid adding an unconfigured line.

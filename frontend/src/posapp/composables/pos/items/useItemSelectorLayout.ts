@@ -10,6 +10,8 @@ type SelectorLayoutOptions = {
 	resizeDebounce?: number;
 	loadVisibleItems?: () => void;
 	getDisplayedItemsCount?: () => number;
+	/** Pass responsive.deviceProfile (ComputedRef) to enable tablet-aware compact card height */
+	deviceProfile?: { value: string };
 };
 
 /**
@@ -21,6 +23,7 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 		resizeDebounce = 100,
 		loadVisibleItems, // Method to load more items on scroll (pagination)
 		getDisplayedItemsCount,
+		deviceProfile,
 	} = options;
 
 	// State
@@ -64,6 +67,13 @@ export function useItemSelectorLayout(options: SelectorLayoutOptions = {}) {
 
 	const cardRowHeight = computed(() => {
 		if (useSmallMenuGrid.value) {
+			// tablet_landscape_compact (Tab A11 kiosk) or short viewport: compact text-only cards
+			const isTabletCompact =
+				deviceProfile?.value === "tablet_landscape_compact" ||
+				windowHeight.value <= 760;
+			if (isTabletCompact) {
+				return 100;
+			}
 			if (effectiveWidth.value <= 560) {
 				return compactRowHeights.narrow;
 			}

@@ -118,7 +118,7 @@
 
 .container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"] .square-pos-columns,
 .container1 .square-pos-columns.device-tablet_landscape_compact {
-	grid-template-columns: minmax(0, 56%) minmax(0, 44%);
+	grid-template-columns: minmax(0, 44%) minmax(0, 56%);
 	gap: var(--pos-pane-gap, 8px);
 }
 
@@ -650,6 +650,20 @@
 .container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
 	.card-item-stock {
 	display: none !important;
+}
+
+/* Tablet kiosk: hide search bar — items selected via QuickOrderBar pills.
+   The sticky-header is the first auto row in the items-selector-body grid;
+   hiding it lets the catalog zone expand to fill the freed vertical space.
+   Also collapse the row-gap so no empty strip remains at the top. */
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.sticky-header {
+	display: none !important;
+}
+.container1 .square-pos-shell[data-device-profile="tablet_landscape_compact"]
+	.items-selector-body {
+	grid-template-rows: 0 minmax(0, 1fr) auto !important;
+	gap: 0 !important;
 }
 
 /* ─── Kiosk / tablet-compact mode ─────────────────────────────────────────── */

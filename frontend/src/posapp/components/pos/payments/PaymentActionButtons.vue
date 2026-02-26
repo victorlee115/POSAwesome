@@ -21,17 +21,41 @@
 					type="button"
 					data-test="cancel-payment-btn"
 					class="cancel-link"
-					@click="$emit('cancel')"
+					@click="confirmCancelVisible = true"
 				>
 					{{ __("Cancel Payment") }}
 				</button>
 			</v-col>
 		</v-row>
+
+		<v-dialog v-model="confirmCancelVisible" max-width="340" persistent>
+			<v-card rounded="xl">
+				<v-card-title class="pt-5 px-5 text-h6">{{ __("Cancel Payment?") }}</v-card-title>
+				<v-card-text class="px-5 pb-2 text-medium-emphasis">
+					{{ __("Payment will not be submitted. Return to cart?") }}
+				</v-card-text>
+				<v-card-actions class="px-5 pb-5" style="gap:8px">
+					<v-btn variant="tonal" color="default" @click="confirmCancelVisible = false" block>
+						{{ __("Keep Paying") }}
+					</v-btn>
+					<v-btn variant="flat" color="error" @click="doCancel" block data-test="confirm-cancel-payment-btn">
+						{{ __("Yes, Cancel") }}
+					</v-btn>
+				</v-card-actions>
+			</v-card>
+		</v-dialog>
 	</div>
 </template>
 
 <script setup>
 import { computed, ref } from "vue";
+
+const confirmCancelVisible = ref(false);
+
+function doCancel() {
+	confirmCancelVisible.value = false;
+	emit("cancel");
+}
 
 const props = defineProps({
 	loading: Boolean,
@@ -55,7 +79,7 @@ const props = defineProps({
 	},
 });
 
-defineEmits(["submit", "submit-and-print", "cancel"]);
+const emit = defineEmits(["submit", "submit-and-print", "cancel"]);
 
 const primaryButton = ref(null);
 
