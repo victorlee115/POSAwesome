@@ -296,31 +296,48 @@ function wrapLines(
 }
 
 const buildTspl = (job: CupLabelJob) => {
-  const header = tsplSafe(`${job.orderToken} ${job.orderSequence}/${job.orderSequenceTotal}`, 26);
-  const cupName = tsplSafe(job.cupName, 18);
-  const drinkName = tsplSafe(job.drinkName, 18);
+  // Header: token + seq/total — small reference text
+  const header = tsplSafe(
+    `${job.orderToken} ${job.orderSequence}/${job.orderSequenceTotal}`,
+    28,
+  );
 
-  // 3 lines of modifiers, 24 chars each
-  const normalizedMods = (job.modifiers || "")
-  .replace(/\s*\|\s*/g, ", ")
-  .replace(/\s+/g, " ")
-  .trim();
+  // Cup name: 2×2 scale → 16 dots/char, 14 chars fit in 234-dot print width
+  const cupName = tsplSafe(job.cupName, 14);
 
-  const [m1, m2, m3] = wrapLines(normalizedMods, 24, 3).map((s) => tsplSafe(s, 24));
+  // Drink name: 2×2 scale, word-wrap to 2 lines (14 chars/line)
+  const drinkRaw = printableAscii(job.drinkName).toUpperCase().trim();
+  const [d1raw, d2raw] = wrapLines(drinkRaw, 14, 2);
+  const d1 = tsplSafe(d1raw, 14);
+  const d2 = tsplSafe(d2raw, 14);
+
+  // Modifiers: split on ", " to place each group on its own line
+  // 2×1 scale → 16 dots wide × 12 dots tall, readable without being huge
+  const modText = (job.modifiers || "").trim();
+  const modParts = modText
+    .split(", ")
+    .map((s) => tsplSafe(s, 14))
+    .filter(Boolean)
+    .slice(0, 3);
+  while (modParts.length < 3) modParts.push("");
+  const [m1, m2, m3] = modParts;
+
   return (
-    "SIZE 40 mm,30 mm\r\n" +
+    // SIZE matches the physical 30 mm × 30 mm label (240 × 240 dots at 8 dpmm)
+    "SIZE 30 mm,30 mm\r\n" +
     "GAP 3 mm,0\r\n" +
     "DIRECTION 0\r\n" +
-    "REFERENCE 10,22\r\n" +
+    "REFERENCE 6,14\r\n" +
     "SPEED 4\r\n" +
     "DENSITY 8\r\n" +
     "CLS\r\n" +
-    `TEXT 0,4,"0",0,1,1,"${header}"\r\n` +
-    `TEXT 0,20,"0",0,1,1,"${cupName}"\r\n` +
-    `TEXT 0,44,"0",0,2,2,"${drinkName}"\r\n` +
-    `TEXT 0,92,"0",0,1,1,"${m1}"\r\n` +
-    `TEXT 0,112,"0",0,1,1,"${m2}"\r\n` +
-    `TEXT 0,132,"0",0,1,1,"${m3}"\r\n` +
+    `TEXT 0,0,"0",0,1,1,"${header}"\r\n` +   // token + seq — small
+    `TEXT 0,16,"0",0,2,2,"${cupName}"\r\n` + // customer name — big
+    `TEXT 0,44,"0",0,2,2,"${d1}"\r\n` +      // drink line 1
+    `TEXT 0,72,"0",0,2,2,"${d2}"\r\n` +      // drink line 2 (empty if fits on 1)
+    `TEXT 0,104,"0",0,2,1,"${m1}"\r\n` +     // modifier group 1 — wider text
+    `TEXT 0,120,"0",0,2,1,"${m2}"\r\n` +     // modifier group 2
+    `TEXT 0,136,"0",0,2,1,"${m3}"\r\n` +     // modifier group 3 (rarely used)
     "PRINT 1,1\r\n"
   );
 };
