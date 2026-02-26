@@ -895,7 +895,6 @@ export default {
 				// Amount discount — set directly, clear % so there's no conflict
 				this.additional_discount = val;
 				this.additional_discount_percentage = 0;
-				this.update_discount_umount();
 			}
 			this.tabletDiscountSheetOpen = false;
 		},
