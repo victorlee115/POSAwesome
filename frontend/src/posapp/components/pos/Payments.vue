@@ -51,7 +51,7 @@
 							density="comfortable"
 							hide-details="auto"
 							data-test="cup-label-name"
-							readonly
+							:inputProps="{ style: 'font-size: 16px' }"
 						/>
 					</section>
 

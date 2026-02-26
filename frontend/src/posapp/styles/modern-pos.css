@@ -649,6 +649,16 @@
    also covers this range; this CSS rule acts as a belt-and-suspenders fallback. */
 /* Belt-and-suspenders for tablets that JS detection correctly classifies.
    Keeps the side-by-side layout on Samsung Galaxy Tab A11 in Fully Kiosk. */
+/* Prevent Android WebView (Fully Kiosk) from zooming into inputs on focus.
+   Any input/textarea with font-size < 16px triggers auto-zoom on Android.
+   This applies globally across the whole POS app. */
+.container1 input,
+.container1 textarea,
+.container1 .v-field__input,
+.container1 .v-field input {
+	font-size: 16px !important;
+}
+
 @media (min-width: 960px) and (max-width: 1600px) and (orientation: landscape) and (max-height: 1024px) {
 	.container1 .square-pos-columns {
 		grid-template-columns: minmax(0, 42%) minmax(0, 58%) !important;

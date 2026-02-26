@@ -177,32 +177,57 @@ const parseSelections = (raw: any): Record<string, string[]> => {
 	return normalized;
 };
 
+const normalizeGroupKey = (key: string) => printableAscii(key).toLowerCase().trim();
+
+const prettyMilkValue = (v: string) => {
+  const u = upperAscii(v, 24);
+  if (u === "MILK") return "DAIRY MILK";
+  if (u === "OAT") return "OAT MILK";
+  if (u === "SOY") return "SOY MILK";
+  if (u === "ALMOND") return "ALMOND MILK";
+  return u; // fallback
+};
+
+const prettySugarValue = (v: string) => {
+  const u = upperAscii(v, 24);
+  // keep percentages as-is; append "SUGAR" later
+  if (u === "0") return "0%";
+  if (u === "50") return "50%";
+  if (u === "100") return "100%";
+  return u; // e.g. "0%","50%","100%"
+};
+
 const getOrderedModifierText = (item: AnyRecord) => {
-	const grouped = parseSelections(item?.posa_modifiers_json);
-	const consumed = new Set<string>();
-	const parts: string[] = [];
+  const grouped = parseSelections(item?.posa_modifiers_json);
 
-	for (const groupDef of orderedModifierGroups) {
-		const matchKey = Object.keys(grouped).find((key) =>
-			groupDef.aliases.includes(key.toLowerCase().trim()),
-		);
-		if (!matchKey) continue;
-		consumed.add(matchKey);
-		const values = grouped[matchKey] || [];
-		if (!values.length) continue;
-		parts.push(`${groupDef.label} ${values.join("/")}`.trim());
-	}
+  // Find keys in a tolerant way
+  const milkKey = Object.keys(grouped).find((k) => ["milk", "milk options"].includes(normalizeGroupKey(k)));
+  const sugarKey = Object.keys(grouped).find((k) => ["sugar", "sweetness", "sugar level"].includes(normalizeGroupKey(k)));
 
-	for (const [key, values] of Object.entries(grouped)) {
-		if (consumed.has(key)) continue;
-		const label = upperAscii(key, 12);
-		if (!label || !values.length) continue;
-		parts.push(`${label} ${values.join("/")}`.trim());
-	}
+  const parts: string[] = [];
 
-	const joined = parts.join(" | ");
-	const fallback = printableAscii(item?.posa_modifier_summary || "");
-	return truncate(joined || fallback, MODIFIERS_MAX);
+  if (milkKey) {
+    const values = grouped[milkKey] || [];
+	const [first] = values;              // first: string | undefined
+	const milk = first ? prettyMilkValue(first) : "";
+	if (milk) parts.push(milk);
+  }
+
+  if (sugarKey) {
+    const values = grouped[sugarKey] || [];
+	const [first] = values;
+	const sugar = first ? prettySugarValue(first) : "";
+	if (sugar) parts.push(`${sugar} SUGAR`);
+  }
+
+  // If we got at least one of milk/sugar, return clean output
+  if (parts.length) {
+    return truncate(parts.join(", "), MODIFIERS_MAX);
+  }
+
+  // Fallback to old behavior if nothing matched
+  const fallback = printableAscii(item?.posa_modifier_summary || "");
+  return truncate(fallback, MODIFIERS_MAX);
 };
 
 const deriveAlerts = (drinkName: string, modifiers: string) => {
@@ -284,11 +309,11 @@ const buildTspl = (job: CupLabelJob) => {
     "SIZE 40 mm,30 mm\r\n" +
     "GAP 3 mm,0\r\n" +
     "DIRECTION 0\r\n" +
-    "REFERENCE 10,16\r\n" +
+    "REFERENCE 10,22\r\n" +
     "SPEED 4\r\n" +
     "DENSITY 8\r\n" +
     "CLS\r\n" +
-    `TEXT 0,0,"0",0,1,1,"${header}"\r\n` +
+    `TEXT 0,4,"0",0,1,1,"${header}"\r\n` +
     `TEXT 0,20,"0",0,1,1,"${cupName}"\r\n` +
     `TEXT 0,44,"0",0,2,2,"${drinkName}"\r\n` +
     `TEXT 0,92,"0",0,1,1,"${m1}"\r\n` +

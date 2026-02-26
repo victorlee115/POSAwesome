@@ -118,20 +118,6 @@
 						"
 					/>
 
-					<!-- Cup label input (tablet compact mode only) -->
-					<div v-if="tabletCompact && invoice_doc" class="tablet-cup-label-zone">
-						<v-text-field
-							v-model="invoice_doc.posa_cup_customer_name"
-							:label="__('Cup Label Name')"
-							:counter="24"
-							variant="outlined"
-							density="compact"
-							hide-details="auto"
-							data-test="cup-label-name-cart"
-							class="mb-2"
-						/>
-					</div>
-
 				<!-- ItemsTable component with reorder event handler -->
 					<ItemsTable
 						ref="itemsTableRef"
@@ -233,28 +219,14 @@
 									@click="applyTabletDiscountPresetObj(preset)"
 								>{{ preset.label }}</v-btn>
 							</div>
-							<!-- Custom value input -->
-							<v-text-field
-								v-model="tabletDiscountInput"
-								:label="pos_profile && pos_profile.posa_use_percentage_discount ? __('Discount %') : __('Discount Amount')"
-								:suffix="pos_profile && pos_profile.posa_use_percentage_discount ? '%' : ''"
-								:prefix="pos_profile && !pos_profile.posa_use_percentage_discount ? currencySymbol(pos_profile.currency) : ''"
-								type="number"
-								min="0"
-								variant="outlined"
-								density="comfortable"
-								hide-details
-								autofocus
-								@keyup.enter="applyTabletDiscount"
-							/>
-						</v-card-text>
+							</v-card-text>
 						<v-card-actions class="pt-0">
 							<v-btn color="error" variant="text" @click="clearTabletDiscount">
-								{{ __("Clear") }}
+								{{ __("Clear Discount") }}
 							</v-btn>
 							<v-spacer />
-							<v-btn color="warning" variant="flat" @click="applyTabletDiscount">
-								{{ __("Apply") }}
+							<v-btn variant="text" @click="tabletDiscountSheetOpen = false">
+								{{ __("Close") }}
 							</v-btn>
 						</v-card-actions>
 					</v-card>
@@ -428,7 +400,6 @@ export default {
 			return_discount_base_amount: 0,
 			_busHandlers: {},
 			tabletDiscountSheetOpen: false,
-			tabletDiscountInput: "",
 		};
 	},
 
@@ -912,19 +883,7 @@ export default {
 		},
 		// ── Tablet discount sheet ────────────────────────────────────────────
 		openTabletDiscountSheet() {
-			// Pre-fill the input with the current discount value
-			if (this.pos_profile?.posa_use_percentage_discount) {
-				const pct = Number(this.additional_discount_percentage || 0);
-				this.tabletDiscountInput = pct > 0 ? String(pct) : "";
-			} else {
-				const amt = Number(this.additional_discount || 0);
-				this.tabletDiscountInput = amt > 0 ? String(amt) : "";
-			}
 			this.tabletDiscountSheetOpen = true;
-		},
-		applyTabletDiscountPreset(pct) {
-			this.tabletDiscountInput = String(pct);
-			this.applyTabletDiscount();
 		},
 		applyTabletDiscountPresetObj(preset) {
 			// Preset has: { label, type: "amount"|"percent", value: Number }
@@ -939,19 +898,7 @@ export default {
 			}
 			this.tabletDiscountSheetOpen = false;
 		},
-		applyTabletDiscount() {
-			const val = Math.max(0, Number(this.tabletDiscountInput) || 0);
-			if (this.pos_profile?.posa_use_percentage_discount) {
-				this.additional_discount_percentage = val;
-				this.update_discount_umount();
-			} else {
-				this.additional_discount = val;
-				this.additional_discount_percentage = 0;
-			}
-			this.tabletDiscountSheetOpen = false;
-		},
 		clearTabletDiscount() {
-			this.tabletDiscountInput = "";
 			this.additional_discount = 0;
 			this.additional_discount_percentage = 0;
 			this.update_discount_umount();

@@ -292,6 +292,22 @@ export function _applyPricingToLine(
 		item.base_amount = context.flt
 			? context.flt(baseAmount, context.currency_precision)
 			: baseAmount;
+
+		// Re-add modifier price delta (e.g. Oat Milk +RM1) on top of the
+		// pricing-rule-adjusted base rate.  base_price_list_rate intentionally
+		// stays at the catalogue price so subsequent rule runs stay stable.
+		const modifierDelta = Number(item.posa_modifiers_delta || 0);
+		if (modifierDelta !== 0) {
+			item.rate = context.flt
+				? context.flt(item.rate + modifierDelta, context.currency_precision)
+				: item.rate + modifierDelta;
+			item.price_list_rate = context.flt
+				? context.flt(item.price_list_rate + modifierDelta, context.currency_precision)
+				: item.price_list_rate + modifierDelta;
+			item.amount = context.flt
+				? context.flt(item.rate * item.qty, context.currency_precision)
+				: item.rate * item.qty;
+		}
 	}
 
 	if (Array.isArray(freebies)) {
@@ -939,6 +955,20 @@ export async function _applyServerPricingRules(context: any, ctx: any = {}) {
 			item.base_amount = context.flt
 				? context.flt(baseRate * item.qty, precision)
 				: baseRate * item.qty;
+
+			// Re-add modifier price delta after server pricing rule adjustment
+			const modifierDelta = Number(item.posa_modifiers_delta || 0);
+			if (modifierDelta !== 0) {
+				item.rate = context.flt
+					? context.flt(item.rate + modifierDelta, precision)
+					: item.rate + modifierDelta;
+				item.price_list_rate = context.flt
+					? context.flt(item.price_list_rate + modifierDelta, precision)
+					: item.price_list_rate + modifierDelta;
+				item.amount = context.flt
+					? context.flt(item.rate * item.qty, precision)
+					: item.rate * item.qty;
+			}
 		}
 
 		const rulesProvided = Object.prototype.hasOwnProperty.call(
