@@ -609,12 +609,17 @@ def reconcile_line_prices(cart_payload: dict | str | None = None):
         doc_obj = frappe.get_doc(doc)
         if hasattr(doc_obj, "apply_pricing_rule"):
             doc_obj.apply_pricing_rule()
+            # Always report pricing_rules metadata so the frontend can update rule badges.
+            # Only include discount fields when a rule actually produced a non-zero value.
+            # Sending discount_amount=0 when no rule applies would silently overwrite any
+            # manually-applied invoice discount on the frontend (e.g. a cashier's RM1 discount).
             invoice_updates = {
-                "discount_amount": flt(doc_obj.discount_amount),
-                "additional_discount_percentage": flt(doc_obj.additional_discount_percentage),
                 "pricing_rules": doc_obj.pricing_rules,
                 "apply_discount_on": doc_obj.apply_discount_on,
             }
+            if flt(doc_obj.discount_amount) or flt(doc_obj.additional_discount_percentage):
+                invoice_updates["discount_amount"] = flt(doc_obj.discount_amount)
+                invoice_updates["additional_discount_percentage"] = flt(doc_obj.additional_discount_percentage)
     except Exception as e:
         frappe.log_error(f"Failed to apply transaction pricing rules: {str(e)}")
 

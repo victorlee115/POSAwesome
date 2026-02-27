@@ -652,6 +652,12 @@ const applyModifierSelectionToItem = (item: any, selection: any) => {
 
 	item.posa_base_rate = baseRate;
 	item.posa_base_price_list_rate = basePriceListRate;
+	// Also set the ERPNext base fields so getNewItem() in useItemCreation does not
+	// fall back to item.rate (which already includes the delta) when constructing
+	// the new cart line. Without this, _resolveBaseRate() returns (baseRate+delta)
+	// and _applyPricingToLine() adds the delta a second time → double-apply.
+	item.base_price_list_rate = basePriceListRate;
+	item.base_rate = baseRate;
 	item.rate = baseRate + delta;
 	item.price_list_rate = basePriceListRate + delta;
 };
