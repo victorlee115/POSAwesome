@@ -240,6 +240,24 @@ export async function load_invoice(
 			if (!item.original_item_name) {
 				item.original_item_name = item.item_name;
 			}
+
+			// ERPNext's calculate_taxes_and_totals() recomputes base_price_list_rate
+			// as price_list_rate * exchange_rate on every server save.  For items
+			// with a modifier delta (e.g. Oat Milk +RM1) this bakes the delta into
+			// base_price_list_rate (14 instead of 13).  _resolveBaseRate() picks up
+			// that contaminated value and _applyPricingToLine() adds the delta a
+			// second time → pressing Pay repeatedly inflates the price by +RM1 each
+			// time.  Subtracting the persisted posa_modifiers_delta from the returned
+			// price_list_rate restores the catalogue base so subsequent pricing runs
+			// stay stable.
+			const modDelta = Number(item.posa_modifiers_delta || 0);
+			if (modDelta !== 0 && Number.isFinite(modDelta)) {
+				const cleanBase = Number(item.price_list_rate || 0) - modDelta;
+				if (cleanBase > 0) {
+					item.posa_base_price_list_rate = cleanBase;
+					item.base_price_list_rate = cleanBase;
+				}
+			}
 		});
 
 		const manualSnapshots = context._snapshotManualValuesFromDocItems
