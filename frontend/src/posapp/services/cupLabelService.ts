@@ -493,24 +493,46 @@ export const printCupJobs = (
 		return { ok: true, sentCount: 0, failures: [] };
 	}
 
-	let sentCount = 0;
-	const failures: CupPrintFailure[] = [];
+	if (!config.ip || !config.port) {
+		const failures = jobs.map((j) => ({
+			labelId: j.labelId,
+			reason: "Missing cup label printer IP/port configuration",
+		}));
+		appendFailureJobs(jobs, failures[0].reason);
+		return { ok: false, sentCount: 0, failures };
+	}
 
-	for (const job of jobs) {
-		const result = printSingleCup(job, config);
-		sentCount += result.sentCount;
-		if (result.failures.length) {
-			failures.push(...result.failures);
+	const fully = getFullyApi();
+	if (!fully?.sendHexDataToTcpPort) {
+		const failures = jobs.map((j) => ({
+			labelId: j.labelId,
+			reason: "Fully Kiosk TCP API unavailable",
+		}));
+		appendFailureJobs(jobs, failures[0].reason);
+		return { ok: false, sentCount: 0, failures };
+	}
+
+	// Batch all labels into one TCP payload so the printer receives a single
+	// connection instead of N rapid connect/send/disconnect cycles.  Cheap
+	// thermal printer TCP stacks can't handle rapid reconnections and produce
+	// socket timeouts after the first 2-3 labels when sent individually.
+	// Each TSPL block already ends with PRINT 1,1 so the printer prints them
+	// sequentially from the single transmission.
+	try {
+		const combinedTspl = jobs.map((job) => buildTspl(job)).join("");
+		const hex = toHex(combinedTspl);
+		const sent = Boolean(fully.sendHexDataToTcpPort(hex, config.ip, config.port));
+		if (!sent) {
+			const reason = "Printer send returned false";
+			const failures = jobs.map((j) => ({ labelId: j.labelId, reason }));
+			appendFailureJobs(jobs, reason);
+			return { ok: false, sentCount: 0, failures };
 		}
+		return { ok: true, sentCount: jobs.length, failures: [] };
+	} catch (error: any) {
+		const reason = error?.message || "Unknown print error";
+		const failures = jobs.map((j) => ({ labelId: j.labelId, reason }));
+		appendFailureJobs(jobs, reason);
+		return { ok: false, sentCount: 0, failures };
 	}
-
-	if (failures.length) {
-		appendFailureJobs(jobs, failures[0]?.reason || "cup-label-print-failure");
-	}
-
-	return {
-		ok: failures.length === 0,
-		sentCount,
-		failures,
-	};
 };
