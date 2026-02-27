@@ -494,21 +494,17 @@ export const printCupJobs = (
 	}
 
 	if (!config.ip || !config.port) {
-		const failures = jobs.map((j) => ({
-			labelId: j.labelId,
-			reason: "Missing cup label printer IP/port configuration",
-		}));
-		appendFailureJobs(jobs, failures[0].reason);
+		const reason = "Missing cup label printer IP/port configuration";
+		const failures = jobs.map((j) => ({ labelId: j.labelId, reason }));
+		appendFailureJobs(jobs, reason);
 		return { ok: false, sentCount: 0, failures };
 	}
 
 	const fully = getFullyApi();
 	if (!fully?.sendHexDataToTcpPort) {
-		const failures = jobs.map((j) => ({
-			labelId: j.labelId,
-			reason: "Fully Kiosk TCP API unavailable",
-		}));
-		appendFailureJobs(jobs, failures[0].reason);
+		const reason = "Fully Kiosk TCP API unavailable";
+		const failures = jobs.map((j) => ({ labelId: j.labelId, reason }));
+		appendFailureJobs(jobs, reason);
 		return { ok: false, sentCount: 0, failures };
 	}
 
