@@ -40,7 +40,7 @@ type FullyApi = {
 
 const ORDER_TOKEN_MAX = 8;
 const CUP_NAME_MAX = 24;
-const DRINK_NAME_MAX = 24;
+const DRINK_NAME_MAX = 30; // supports 2 lines × 14 chars; was 24 which clipped e.g. "Banana Milk Hojicha Latte" (25 chars)
 const MODIFIERS_MAX = 48;
 const ALERTS_MAX = 24;
 const LABEL_ID_MAX = 64;
@@ -388,8 +388,14 @@ export const buildCupLabelJobs = (invoiceDoc: AnyRecord, posProfile: AnyRecord):
 	invoiceDoc.posa_order_token = orderToken;
 	invoiceDoc.posa_cup_customer_name = cupName;
 
-	for (let lineIdx = 0; lineIdx < invoiceDoc.items.length; lineIdx += 1) {
-		const item = invoiceDoc.items[lineIdx];
+	// Sort by ERPNext's 1-based row index so labels always print in insertion
+	// order regardless of how the server returns the items child table.
+	const sortedItems = [...invoiceDoc.items].sort(
+		(a, b) => Number(a?.idx ?? 0) - Number(b?.idx ?? 0),
+	);
+
+	for (let lineIdx = 0; lineIdx < sortedItems.length; lineIdx += 1) {
+		const item = sortedItems[lineIdx];
 		if (!isPrepItem(item)) continue;
 
 		const lineId = resolveLineId(item, lineIdx);
